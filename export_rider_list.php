@@ -135,6 +135,8 @@ add_action('admin_init', function () {
         return (stripos($team_title, $einzel_keyword) !== false);
     };
 
+    // Startnummern-Logik: Startnummer für jede Rennklasse im nächsten 50er-Block beginnen lassen
+    $next_start_number = 1;
     foreach ($rennklassen as $rk_term) {
         // Teams je Rennklasse
         $teams_in_rk = get_posts(array(
@@ -167,9 +169,11 @@ add_action('admin_init', function () {
         usort($einzel,  function($a,$b){ return strcasecmp($a->post_title, $b->post_title); });
         $ordered_teams = array_merge($regular, $einzel);
 
-        // Nummern je Rennklasse neu: Block 0→1..9, 1→11..19, 2→21..29 …
+        // Startnummer für diese Rennklasse bestimmen (nächster 50er-Block)
+        $class_start_number = $next_start_number;
         $block_index    = 0;
         $class_has_rows = false;
+        $max_number_in_class = 0;
 
         foreach ($ordered_teams as $team) {
             // Fahrer des Teams
@@ -197,7 +201,7 @@ add_action('admin_init', function () {
 
             $team_title = get_the_title($team->ID);
             $einzelFlg  = $is_einzel($team_title);
-            $base       = ($block_index * 10) + 1; // 1, 11, 21, …
+            $base       = $class_start_number + ($block_index * 10); // z.B. 1, 11, 21, ...
 
             $assigned = 0;
             foreach ($fahrer as $f) {
@@ -228,6 +232,10 @@ add_action('admin_init', function () {
                     }
                 }
 
+                if ($nr !== '') {
+                    $max_number_in_class = max($max_number_in_class, (int)$nr);
+                }
+
                 fputcsv($out, array(
                     $rk_term->name,
                     $team_title,
@@ -255,6 +263,11 @@ add_action('admin_init', function () {
         // Leerzeile zwischen Rennklassen, wenn in dieser Rennklasse etwas ausgegeben wurde
         if ($class_has_rows) {
             fputcsv($out, array(), $delimiter);
+        }
+
+        // Nächsten Startnummernblock für folgende Rennklasse bestimmen
+        if ($max_number_in_class > 0) {
+            $next_start_number = (int)(floor(($max_number_in_class + 49) / 50) * 50) + 1;
         }
     }
 
