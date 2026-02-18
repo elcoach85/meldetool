@@ -294,4 +294,78 @@ add_action('admin_notices', function () {
     echo '</div>';
 });
 
+
 require_once MELDETOOL_PLUGIN_DIR . 'export_rider_list.php';
+
+// Taxonomien bei Plugin-Aktivierung mit Pods anlegen
+register_activation_hook(__FILE__, function() {
+    if (!function_exists('pods_api')) {
+        // Pods ist nicht aktiv
+        deactivate_plugins(plugin_basename(__FILE__));
+        wp_die('Das Plugin "Pods" muss aktiviert sein, damit das Meldetool funktioniert.');
+    }
+
+    // Kategorie-Taxonomie (Meta Storage)
+    if (!pods_api()->load_pod(array('name' => 'kategorie2', 'type' => 'taxonomy'))) {
+        pods_api()->save_pod(array(
+            'name' => 'kategorie2',
+            'label' => 'Kategorie2',
+            'label_plural' => 'Kategorien2',
+            'type' => 'taxonomy',
+            'public' => true,
+            'show_ui' => true,
+            'hierarchical' => false,
+            'storage' => 'meta',
+        ));
+    }
+        
+    // Kategorie-Terms anlegen
+    $kategorien = array(
+        'Amateure',
+        'Elite Amateure',
+        'Frauen und Frauen Elite',
+        'Jugend männlich U17',
+        'Jugend weiblich U17',
+        'Junioren U19',
+        'Juniorinnen U19',
+        'Männer U23',
+        'Schüler U15',
+        'Schülerinnen U15',
+    );
+    foreach ($kategorien as $kategorie) {
+        if (!term_exists($kategorie, 'kategorie2')) {
+            wp_insert_term($kategorie, 'kategorie2');
+        }
+    }
+
+    // Rennklasse-Taxonomie (Meta Storage)
+    if (!pods_api()->load_pod(array('name' => 'rennklasse2', 'type' => 'taxonomy'))) {
+        pods_api()->save_pod(array(
+            'name' => 'rennklasse2',
+            'label' => 'Rennklasse2',
+            'label_plural' => 'Rennklassen2',
+            'type' => 'taxonomy',
+            'public' => true,
+            'show_ui' => true,
+            'hierarchical' => false,
+            'storage' => 'meta',
+        ));
+    }
+
+    // Rennklassen-Terms anlegen
+    $rennklassen = array(
+        'Elite Amateure und Männer U23',
+        'Frauen und Frauen Elite',
+        'Jugend männlich U17',
+        'Jugend weiblich U17',
+        'Junioren U19',
+        'Juniorinnen U19',
+        'Schüler U15',
+        'Schülerinnen U15',
+    );
+    foreach ($rennklassen as $rennklasse) {
+        if (!term_exists($rennklasse, 'rennklasse2')) {
+            wp_insert_term($rennklasse, 'rennklasse2');
+        }
+    }
+});
