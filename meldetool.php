@@ -297,7 +297,7 @@ add_action('admin_notices', function () {
 
 require_once MELDETOOL_PLUGIN_DIR . 'export_rider_list.php';
 
-// Taxonomien bei Plugin-Aktivierung mit Pods anlegen
+// Taxonomien und Terms bei Plugin-Aktivierung mit Pods anlegen
 register_activation_hook(__FILE__, function() {
     if (!function_exists('pods_api')) {
         // Pods ist nicht aktiv
@@ -369,3 +369,38 @@ register_activation_hook(__FILE__, function() {
         }
     }
 });
+
+// Deinstallationsroutine: Nutzer fragen, ob Pods und Terms gelöscht werden sollen (UNTESTED!)
+register_uninstall_hook(__FILE__, 'meldetool_uninstall');
+
+function meldetool_uninstall() {
+    // Nur im Admin-Bereich ausführen
+    if (!is_admin()) return;
+
+    // Dialog anzeigen (nur bei direkter Deinstallation über Plugins-Seite)
+    if (isset($_GET['action']) && $_GET['action'] === 'delete-plugin' && isset($_GET['plugin']) && $_GET['plugin'] === plugin_basename(__FILE__)) {
+        echo '<div class="notice notice-warning"><p>\n'
+            . 'Möchten Sie die Taxonomien <strong>Rennklasse</strong> und <strong>Kategorie</strong> sowie alle zugehörigen Inhalte (Terms) dauerhaft aus der Datenbank löschen?'<br>
+            . '<a href="' . esc_url(add_query_arg('meldetool_delete_pods', '1')) . '" class="button button-primary">Ja, alles löschen</a> '
+            . '<a href="' . esc_url(remove_query_arg('meldetool_delete_pods')) . '" class="button">Nein, behalten</a>'
+            . '</p></div>';
+        return;
+    }
+
+    // Löschen, wenn bestätigt
+    if (isset($_GET['meldetool_delete_pods']) && $_GET['meldetool_delete_pods'] == '1') {
+        // Pods und Terms löschen
+        if (function_exists('pods_api')) {
+            pods_api()->delete_pod(array('name' => 'kategorie2', 'type' => 'taxonomy'));
+            pods_api()->delete_pod(array('name' => 'rennklasse2', 'type' => 'taxonomy'));
+        }
+        // Terms löschen (falls Pods nicht alles entfernt)
+        $taxonomies = array('kategorie2', 'rennklasse2');
+        foreach ($taxonomies as $taxonomy) {
+            $terms = get_terms(array('taxonomy' => $taxonomy, 'hide_empty' => false));
+            foreach ($terms as $term) {
+                wp_delete_term($term->term_id, $taxonomy);
+            }
+        }
+    }
+}
