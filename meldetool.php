@@ -368,6 +368,33 @@ register_activation_hook(__FILE__, function() {
             wp_insert_term($rennklasse, 'rennklasse2');
         }
     }
+
+    // Fahrer Pod anlegen
+    if (!pods_api()->load_pod(array('name' => 'fahrer2', 'type' => 'post_type'))) {
+        pods_api()->save_pod(array(
+            'name' => 'fahrer2',
+            'label' => 'Fahrer2',
+            'label_plural' => 'Fahrer2',
+            'type' => 'post_type',
+            'public' => true,
+            'show_ui' => true,
+            'hierarchical' => false,
+            'storage' => 'meta',
+        ));
+    }
+    // Team Pod anlegen
+    if (!pods_api()->load_pod(array('name' => 'team2', 'type' => 'post_type'))) {
+        pods_api()->save_pod(array(
+            'name' => 'team2',
+            'label' => 'Team2',
+            'label_plural' => 'Teams2',
+            'type' => 'post_type',
+            'public' => true,
+            'show_ui' => true,
+            'hierarchical' => false,
+            'storage' => 'meta',
+        ));
+    }
 });
 
 
