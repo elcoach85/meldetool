@@ -406,6 +406,8 @@ function meldetool_uninstall() {
     if (function_exists('pods_api')) {
         pods_api()->delete_pod(array('name' => 'kategorie2', 'type' => 'taxonomy'));
         pods_api()->delete_pod(array('name' => 'rennklasse2', 'type' => 'taxonomy'));
+        pods_api()->delete_pod(array('name' => 'fahrer2', 'type' => 'post_type'));
+        pods_api()->delete_pod(array('name' => 'team2', 'type' => 'post_type'));
     }
     // Terms löschen (falls Pods nicht alles entfernt)
     $taxonomies = array('kategorie2', 'rennklasse2');
