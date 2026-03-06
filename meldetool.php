@@ -295,6 +295,33 @@ add_action('admin_notices', function () {
 });
 
 
+// Synchronisation: Wenn im Fahrer-Edit Screen die Kategorie ausgewählt wird, soll automatisch die entsprechende Kategorie-Taxonomie am Fahrer gesetzt werden (und umgekehrt)
+add_action('save_post', 'sync_relationship_field_with_taxonomy', 10, 3);
+
+function sync_relationship_field_with_taxonomy($post_id) {
+    $post_type = get_post_type($post_id);
+
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (wp_is_post_revision($post_id)) return;
+
+    if ($post_type == 'team') {
+        $relationship_field = get_post_meta($post_id, 'rennklasse', true);
+        if (!empty($relationship_field)) {
+            wp_set_post_terms($post_id, array($relationship_field), 'rennklasse');
+        } else {
+            wp_set_post_terms($post_id, array(), 'rennklasse');
+        }
+    }
+    if ($post_type == 'fahrer') {
+        $relationship_field = get_post_meta($post_id, 'renn-kategorie', true);
+        if (!empty($relationship_field)) {
+            wp_set_post_terms($post_id, array($relationship_field), 'kategorie');
+        } else {
+            wp_set_post_terms($post_id, array(), 'kategorie');
+        }
+    }
+}
+
 require_once MELDETOOL_PLUGIN_DIR . 'export_rider_list.php';
 
 // Taxonomien und Terms bei Plugin-Aktivierung mit Pods anlegen
@@ -373,8 +400,8 @@ register_activation_hook(__FILE__, function() {
     if (!pods_api()->load_pod(array('name' => 'fahrer', 'type' => 'post_type'))) {
         pods_api()->save_pod(array(
             'name' => 'fahrer',
-            'label' => 'Fahrer*in',
-            'label_plural' => 'Fahrer*innen',
+            'label' => 'Fahrer*innen',
+            'label_singular' => 'Fahrer*in',
             'type' => 'post_type',
             'public' => true,
             'show_ui' => true,
@@ -394,8 +421,9 @@ register_activation_hook(__FILE__, function() {
                 array(
                     'name' => 'renn-kategorie',
                     'label' => 'Kategorie',
-                    'type' => 'taxonomy',
-                    'taxonomy' => 'kategorie',
+                    'type' => 'pick',
+                    'pick_object' => 'taxonomy',
+                    'pick_val' => 'kategorie',
                     'required' => true,
                     'options' => array('sync' => 1),
                 ),
@@ -436,8 +464,8 @@ register_activation_hook(__FILE__, function() {
     if (!pods_api()->load_pod(array('name' => 'team', 'type' => 'post_type'))) {
         pods_api()->save_pod(array(
             'name' => 'team',
-            'label' => 'Team',
-            'label_plural' => 'Teams',
+            'label' => 'Teams',
+            'label_singular' => 'Team',
             'type' => 'post_type',
             'public' => true,
             'show_ui' => true,
