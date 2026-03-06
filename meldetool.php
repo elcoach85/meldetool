@@ -411,35 +411,20 @@ register_activation_hook(__FILE__, function() {
                 array(
                     'name' => 'main',
                     'label' => 'Hauptgruppe',
-                    'fields' => array(
+                    /*'fields' => array(
                         'nachname', 'vorname', 'team', 'renn-kategorie', 'lizenznummer', 'uci_id', 'ist_kapitaen', 'email_rider', 'nationalitaet', 'iban', 'bic', 'kontoinhaber'
-                    ),
+                    ),*/
                 ),
             ),
             'fields' => array(
-                array('name' => 'nachname', 'label' => 'Nachname', 'type' => 'text', 'required' => true),
-                array('name' => 'vorname', 'label' => 'Vorname', 'type' => 'text', 'required' => true),
-                array(
-                    'name' => 'team',
-                    'label' => 'Team',
-                    'type' => 'pick',
-                    'pick_object' => 'post_type',
-                    'pick_val' => 'team',
-                    'required' => true,
-                ),
-                array(
-                    'name' => 'renn-kategorie',
-                    'label' => 'Kategorie',
-                    'type' => 'pick',
-                    'pick_object' => 'taxonomy',
-                    'pick_val' => 'kategorie',
-                    'required' => true,
-                    'options' => array('sync' => 1),
-                ),
-                array('name' => 'lizenznummer', 'label' => 'Nationale Lizenznummer', 'type' => 'text', 'required' => true),
-                array('name' => 'uci_id', 'label' => 'UCI-ID', 'type' => 'text', 'required' => true),
-                array('name' => 'ist_kapitaen', 'label' => 'Fahrer*in ist Kapitän*in? (1x pro Team)', 'type' => 'boolean'),
-                array('name' => 'email_rider', 'label' => 'E-Mail', 'type' => 'email', 'required' => true),
+                array('name' => 'nachname', 'label' => 'Nachname', 'type' => 'text', 'required' => true, 'group' => 'main'),
+                array('name' => 'vorname', 'label' => 'Vorname', 'type' => 'text', 'required' => true, 'group' => 'main'),
+                array('name' => 'team', 'label' => 'Team', 'type' => 'pick', 'pick_object' => 'post_type', 'pick_val' => 'team', 'required' => true, 'group' => 'main'),
+                array('name' => 'renn-kategorie', 'label' => 'Kategorie', 'type' => 'taxonomy', 'taxonomy' => 'kategorie', 'required' => true, 'options' => array('sync' => 1), 'group' => 'main'),
+                array('name' => 'lizenznummer', 'label' => 'Nationale Lizenznummer', 'type' => 'text', 'required' => true, 'group' => 'main'),
+                array('name' => 'uci_id', 'label' => 'UCI-ID', 'type' => 'text', 'required' => true, 'group' => 'main'),
+                array('name' => 'ist_kapitaen', 'label' => 'Fahrer*in ist Kapitän*in? (1x pro Team)', 'type' => 'boolean', 'group' => 'main'),
+                array('name' => 'email_rider', 'label' => 'E-Mail', 'type' => 'email', 'required' => true, 'group' => 'main'),
                 array(
                     'name' => 'nationalitaet',
                     'label' => 'Nationalität',
@@ -459,13 +444,10 @@ register_activation_hook(__FILE__, function() {
                         'NOR' => 'Norwegen',
                         'USA' => 'Vereinigte Staaten von Amerika',
                         'ZAF' => 'Südafrika',
-                    ),
-                    'allow_other' => true,
-                    'required' => true,
-                ),
-                array('name' => 'iban', 'label' => 'IBAN (nur Einzelstarter)', 'type' => 'text'),
-                array('name' => 'bic', 'label' => 'BIC (nur Einzelstarter)', 'type' => 'text'),
-                array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (nur Einzelstarter)', 'type' => 'text'),
+                    ), 'allow_other' => true, 'required' => true, 'group' => 'main'),
+                array('name' => 'iban', 'label' => 'IBAN (nur Einzelstarter)', 'type' => 'text', 'required' => true, 'group' => 'main'),
+                array('name' => 'bic', 'label' => 'BIC (nur Einzelstarter)', 'type' => 'text', 'required' => true, 'group' => 'main'),
+                array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (nur Einzelstarter)', 'type' => 'text', 'required' => true, 'group' => 'main'),
             ),
         ));
     }
@@ -484,30 +466,18 @@ register_activation_hook(__FILE__, function() {
                 array(
                     'name' => 'main',
                     'label' => 'Hauptgruppe',
-                    'fields' => array('teamname', 'rennklasse', 'teammanager', 'email_manager', 'iban', 'bic', 'kontoinhaber'),
+                    /*'fields' => array('teamname', 'rennklasse', 'teammanager', 'email_manager', 'iban', 'bic', 'kontoinhaber'),*/
                 ),
             ),
             'fields' => array(
-                array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text', 'required' => true),
-                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse', 'options' => array('sync' => 1), 'required' => true),
-                array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text', 'required' => true),
-                array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email', 'required' => true),
+                array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text', 'required' => true, 'group' => 'main'),
+                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'taxonomy', 'taxonomy' => 'rennklasse', 'options' => array('sync' => 1), 'required' => true, 'group' => 'main'),
+                array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text', 'required' => true, 'group' => 'main'),
+                array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email', 'required' => true, 'group' => 'main'),
+                array('name' => 'iban', 'label' => 'IBAN (für Preisgelder)', 'type' => 'text', 'group' => 'main'),
+                array('name' => 'bic', 'label' => 'BIC (für Preisgelder)', 'type' => 'text', 'group' => 'main'),
+                array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (für Preisgelder)', 'type' => 'text', 'group' => 'main'),
             ),
-                array(
-                    'name' => 'iban',
-                    'label' => 'IBAN (für Preisgelder)',
-                    'type' => 'text',
-                ),
-                array(
-                    'name' => 'bic',
-                    'label' => 'BIC (für Preisgelder)',
-                    'type' => 'text',
-                ),
-                array(
-                    'name' => 'kontoinhaber',
-                    'label' => 'Kontoinhaber (für Preisgelder)',
-                    'type' => 'text',
-                ),
         ));
     }
 });
