@@ -452,6 +452,27 @@ register_activation_hook(__FILE__, function() {
             'show_ui' => true,
             'hierarchical' => false,
             'storage' => 'meta',
+            'fields' => array(
+                array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text'),
+                array('name' => 'rennklasse-fahrer', 'label' => 'Rennklasse Fahrer', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse2'),
+                array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text'),
+                array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email'),
+            ),
+                array(
+                    'name' => 'iban',
+                    'label' => 'IBAN (für Preisgelder)',
+                    'type' => 'text',
+                ),
+                array(
+                    'name' => 'bic',
+                    'label' => 'BIC (für Preisgelder)',
+                    'type' => 'text',
+                ),
+                array(
+                    'name' => 'kontoinhaber',
+                    'label' => 'Kontoinhaber (für Preisgelder)',
+                    'type' => 'text',
+                ),
         ));
     }
 });
