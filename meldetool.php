@@ -380,6 +380,21 @@ register_activation_hook(__FILE__, function() {
             'show_ui' => true,
             'hierarchical' => false,
             'storage' => 'meta',
+            'fields' => array(
+                array('name' => 'nachname', 'label' => 'Nachname', 'type' => 'text'),
+                array('name' => 'vorname', 'label' => 'Vorname', 'type' => 'text'),
+                array(
+                    'name' => 'team',
+                    'label' => 'Team',
+                    'type' => 'pick',
+                    'pick_object' => 'post_type',
+                    'pick_val' => 'team2',
+                ),
+                array('name' => 'renn-kategorie', 'label' => 'Kategorie', 'type' => 'pick', 'pick_object' => 'post_type', 'pick_val' => 'kategorie2'),
+                array('name' => 'lizenznummer', 'label' => 'Nationale Lizenznummer', 'type' => 'text'),
+                array('name' => 'uci_id', 'label' => 'UCI-ID', 'type' => 'text'),
+                array('name' => 'ist_kapitaen', 'label' => 'Fahrer*in ist Kapitän*in?', 'type' => 'bool'),
+            ),
         ));
     }
     // Team Pod anlegen
