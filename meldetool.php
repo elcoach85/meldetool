@@ -336,8 +336,8 @@ register_activation_hook(__FILE__, function() {
     if (!pods_api()->load_pod(array('name' => 'kategorie', 'type' => 'taxonomy'))) {
         pods_api()->save_pod(array(
             'name' => 'kategorie',
-            'label' => 'Kategorie',
-            'label_plural' => 'Kategorien',
+            'label' => 'Fahrerkategorien',
+            'label_singular' => 'Fahrerkategorie',
             'type' => 'taxonomy',
             'public' => true,
             'show_ui' => true,
@@ -369,8 +369,8 @@ register_activation_hook(__FILE__, function() {
     if (!pods_api()->load_pod(array('name' => 'rennklasse', 'type' => 'taxonomy'))) {
         pods_api()->save_pod(array(
             'name' => 'rennklasse',
-            'label' => 'Rennklasse',
-            'label_plural' => 'Rennklassen',
+            'label' => 'Rennklassen',
+            'label_singular' => 'Rennklasse',
             'type' => 'taxonomy',
             'public' => true,
             'show_ui' => true,
@@ -407,6 +407,15 @@ register_activation_hook(__FILE__, function() {
             'show_ui' => true,
             'hierarchical' => false,
             'storage' => 'meta',
+            'groups' => array(
+                array(
+                    'name' => 'main',
+                    'label' => 'Hauptgruppe',
+                    'fields' => array(
+                        'nachname', 'vorname', 'team', 'renn-kategorie', 'lizenznummer', 'uci_id', 'ist_kapitaen', 'email_rider', 'nationalitaet', 'iban', 'bic', 'kontoinhaber'
+                    ),
+                ),
+            ),
             'fields' => array(
                 array('name' => 'nachname', 'label' => 'Nachname', 'type' => 'text', 'required' => true),
                 array('name' => 'vorname', 'label' => 'Vorname', 'type' => 'text', 'required' => true),
@@ -471,6 +480,13 @@ register_activation_hook(__FILE__, function() {
             'show_ui' => true,
             'hierarchical' => false,
             'storage' => 'meta',
+            'groups' => array(
+                array(
+                    'name' => 'main',
+                    'label' => 'Hauptgruppe',
+                    'fields' => array('teamname', 'rennklasse', 'teammanager', 'email_manager', 'iban', 'bic', 'kontoinhaber'),
+                ),
+            ),
             'fields' => array(
                 array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text', 'required' => true),
                 array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse', 'options' => array('sync' => 1), 'required' => true),
