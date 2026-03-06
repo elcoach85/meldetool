@@ -306,11 +306,11 @@ register_activation_hook(__FILE__, function() {
     }
 
     // Kategorie-Taxonomie (Meta Storage)
-    if (!pods_api()->load_pod(array('name' => 'kategorie2', 'type' => 'taxonomy'))) {
+    if (!pods_api()->load_pod(array('name' => 'kategorie', 'type' => 'taxonomy'))) {
         pods_api()->save_pod(array(
-            'name' => 'kategorie2',
-            'label' => 'Kategorie2',
-            'label_plural' => 'Kategorien2',
+            'name' => 'kategorie',
+            'label' => 'Kategorie',
+            'label_plural' => 'Kategorien',
             'type' => 'taxonomy',
             'public' => true,
             'show_ui' => true,
@@ -333,17 +333,17 @@ register_activation_hook(__FILE__, function() {
         'Schülerinnen U15',
     );
     foreach ($kategorien as $kategorie) {
-        if (!term_exists($kategorie, 'kategorie2')) {
-            wp_insert_term($kategorie, 'kategorie2');
+        if (!term_exists($kategorie, 'kategorie')) {
+            wp_insert_term($kategorie, 'kategorie');
         }
     }
 
     // Rennklasse-Taxonomie (Meta Storage)
-    if (!pods_api()->load_pod(array('name' => 'rennklasse2', 'type' => 'taxonomy'))) {
+    if (!pods_api()->load_pod(array('name' => 'rennklasse', 'type' => 'taxonomy'))) {
         pods_api()->save_pod(array(
-            'name' => 'rennklasse2',
-            'label' => 'Rennklasse2',
-            'label_plural' => 'Rennklassen2',
+            'name' => 'rennklasse',
+            'label' => 'Rennklasse',
+            'label_plural' => 'Rennklassen',
             'type' => 'taxonomy',
             'public' => true,
             'show_ui' => true,
@@ -364,17 +364,17 @@ register_activation_hook(__FILE__, function() {
         'Schülerinnen U15',
     );
     foreach ($rennklassen as $rennklasse) {
-        if (!term_exists($rennklasse, 'rennklasse2')) {
-            wp_insert_term($rennklasse, 'rennklasse2');
+        if (!term_exists($rennklasse, 'rennklasse')) {
+            wp_insert_term($rennklasse, 'rennklasse');
         }
     }
 
     // Fahrer Pod anlegen
-    if (!pods_api()->load_pod(array('name' => 'fahrer2', 'type' => 'post_type'))) {
+    if (!pods_api()->load_pod(array('name' => 'fahrer', 'type' => 'post_type'))) {
         pods_api()->save_pod(array(
-            'name' => 'fahrer2',
-            'label' => 'Fahrer2',
-            'label_plural' => 'Fahrer2',
+            'name' => 'fahrer',
+            'label' => 'Fahrer*in',
+            'label_plural' => 'Fahrer*innen',
             'type' => 'post_type',
             'public' => true,
             'show_ui' => true,
@@ -388,14 +388,14 @@ register_activation_hook(__FILE__, function() {
                     'label' => 'Team',
                     'type' => 'pick',
                     'pick_object' => 'post_type',
-                    'pick_val' => 'team2',
+                    'pick_val' => 'team',
                 ),
                 array(
                     'name' => 'renn-kategorie',
                     'label' => 'Kategorie',
                     'type' => 'pick',
                     'pick_object' => 'taxonomy',
-                    'pick_val' => 'kategorie2',
+                    'pick_val' => 'kategorie',
                 ),
                 array('name' => 'lizenznummer', 'label' => 'Nationale Lizenznummer', 'type' => 'text'),
                 array('name' => 'uci_id', 'label' => 'UCI-ID', 'type' => 'text'),
@@ -442,11 +442,11 @@ register_activation_hook(__FILE__, function() {
         ));
     }
     // Team Pod anlegen
-    if (!pods_api()->load_pod(array('name' => 'team2', 'type' => 'post_type'))) {
+    if (!pods_api()->load_pod(array('name' => 'team', 'type' => 'post_type'))) {
         pods_api()->save_pod(array(
-            'name' => 'team2',
-            'label' => 'Team2',
-            'label_plural' => 'Teams2',
+            'name' => 'team',
+            'label' => 'Team',
+            'label_plural' => 'Teams',
             'type' => 'post_type',
             'public' => true,
             'show_ui' => true,
@@ -454,7 +454,7 @@ register_activation_hook(__FILE__, function() {
             'storage' => 'meta',
             'fields' => array(
                 array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text'),
-                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse2'),
+                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse'),
                 array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text'),
                 array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email'),
             ),
@@ -484,13 +484,13 @@ register_uninstall_hook(__FILE__, 'meldetool_uninstall');
 function meldetool_uninstall() {
     // Immer alle zugehörigen Pods und Terms löschen
     if (function_exists('pods_api')) {
-        pods_api()->delete_pod(array('name' => 'kategorie2', 'type' => 'taxonomy'));
-        pods_api()->delete_pod(array('name' => 'rennklasse2', 'type' => 'taxonomy'));
-        pods_api()->delete_pod(array('name' => 'fahrer2', 'type' => 'post_type'));
-        pods_api()->delete_pod(array('name' => 'team2', 'type' => 'post_type'));
+        pods_api()->delete_pod(array('name' => 'kategorie', 'type' => 'taxonomy'));
+        pods_api()->delete_pod(array('name' => 'rennklasse', 'type' => 'taxonomy'));
+        pods_api()->delete_pod(array('name' => 'fahrer', 'type' => 'post_type'));
+        pods_api()->delete_pod(array('name' => 'team', 'type' => 'post_type'));
     }
     // Terms löschen (falls Pods nicht alles entfernt)
-    $taxonomies = array('kategorie2', 'rennklasse2');
+    $taxonomies = array('kategorie', 'rennklasse');
     foreach ($taxonomies as $taxonomy) {
         $terms = get_terms(array('taxonomy' => $taxonomy, 'hide_empty' => false));
         if (!is_wp_error($terms) && is_array($terms)) {
