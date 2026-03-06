@@ -397,7 +397,7 @@ register_activation_hook(__FILE__, function() {
                     'type' => 'taxonomy',
                     'taxonomy' => 'kategorie',
                     'required' => true,
-                    'sync' => true,
+                    'options' => array('sync' => 1),
                 ),
                 array('name' => 'lizenznummer', 'label' => 'Nationale Lizenznummer', 'type' => 'text', 'required' => true),
                 array('name' => 'uci_id', 'label' => 'UCI-ID', 'type' => 'text', 'required' => true),
@@ -445,7 +445,7 @@ register_activation_hook(__FILE__, function() {
             'storage' => 'meta',
             'fields' => array(
                 array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text', 'required' => true),
-                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse','sync' => true, 'required' => true),
+                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse', 'options' => array('sync' => 1), 'required' => true),
                 array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text', 'required' => true),
                 array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email', 'required' => true),
             ),
