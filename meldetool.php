@@ -388,7 +388,7 @@ register_activation_hook(__FILE__, function() {
                     'label' => 'Team',
                     'type' => 'pick',
                     'pick_object' => 'post_type',
-                    'pick_val' => 'team2',
+                    'pick_val' => 'team',
                     'required' => true,
                 ),
                 array(
@@ -396,8 +396,9 @@ register_activation_hook(__FILE__, function() {
                     'label' => 'Kategorie',
                     'type' => 'pick',
                     'pick_object' => 'taxonomy',
-                    'pick_val' => 'kategorie2',
+                    'pick_val' => 'kategorie',
                     'required' => true,
+                    'sync' => true,
                 ),
                 array('name' => 'lizenznummer', 'label' => 'Nationale Lizenznummer', 'type' => 'text', 'required' => true),
                 array('name' => 'uci_id', 'label' => 'UCI-ID', 'type' => 'text', 'required' => true),
@@ -445,7 +446,7 @@ register_activation_hook(__FILE__, function() {
             'storage' => 'meta',
             'fields' => array(
                 array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text'),
-                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse'),
+                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse','sync' => true,),
                 array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text'),
                 array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email'),
             ),
