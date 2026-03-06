@@ -394,9 +394,8 @@ register_activation_hook(__FILE__, function() {
                 array(
                     'name' => 'renn-kategorie',
                     'label' => 'Kategorie',
-                    'type' => 'pick',
-                    'pick_object' => 'taxonomy',
-                    'pick_val' => 'kategorie',
+                    'type' => 'taxonomy',
+                    'taxonomy' => 'kategorie',
                     'required' => true,
                     'sync' => true,
                 ),
@@ -445,10 +444,10 @@ register_activation_hook(__FILE__, function() {
             'hierarchical' => false,
             'storage' => 'meta',
             'fields' => array(
-                array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text'),
-                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse','sync' => true,),
-                array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text'),
-                array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email'),
+                array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text', 'required' => true),
+                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse','sync' => true, 'required' => true),
+                array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text', 'required' => true),
+                array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email', 'required' => true),
             ),
                 array(
                     'name' => 'iban',
