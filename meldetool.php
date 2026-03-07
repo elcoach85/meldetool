@@ -400,6 +400,8 @@ register_activation_hook(__FILE__, function() {
             wp_insert_term($rennklasse, 'rennklasse');
         }
     }
+    // Verbindung Taxonomie 'rennklasse' mit Post Type 'team' sicherstellen
+    register_taxonomy_for_object_type('rennklasse', 'team');
 
     // Fahrer Pod anlegen
     if (!pods_api()->load_pod(array('name' => 'fahrer', 'type' => 'post_type'))) {
@@ -469,6 +471,9 @@ register_activation_hook(__FILE__, function() {
             ),
         ));
     }
+
+    // Verbindung Taxonomie 'kategorie' mit Post Type 'fahrer' sicherstellen
+    register_taxonomy_for_object_type('kategorie', 'fahrer');
 });
 
 
