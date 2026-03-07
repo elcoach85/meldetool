@@ -17,6 +17,15 @@ defined( 'ABSPATH' ) or die( 'Are you ok?' );
 
 defined( 'MELDETOOL_PLUGIN_DIR' ) || define( 'MELDETOOL_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
+// Verbindung Taxonomie 'kategorie' mit Post Type 'fahrer' bei jedem Laden sicherstellen
+add_action('init', function() {
+    register_taxonomy_for_object_type('kategorie', 'fahrer');
+});
+// Verbindung Taxonomie 'rennklasse' mit Post Type 'team' bei jedem Laden sicherstellen
+add_action('init', function() {
+    register_taxonomy_for_object_type('rennklasse', 'team');
+});
+
 /**
  * Fahrername
  */
