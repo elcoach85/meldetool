@@ -17,13 +17,30 @@ defined( 'ABSPATH' ) or die( 'Are you ok?' );
 
 defined( 'MELDETOOL_PLUGIN_DIR' ) || define( 'MELDETOOL_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
-// Verbindung Taxonomie 'kategorie' mit Post Type 'fahrer' bei jedem Laden sicherstellen
+// Verbindung Taxonomien mit Post Types bei jedem Laden sicherstellen
 add_action('init', function() {
+    // WordPress-Registrierung
     register_taxonomy_for_object_type('kategorie', 'fahrer');
-});
-// Verbindung Taxonomie 'rennklasse' mit Post Type 'team' bei jedem Laden sicherstellen
-add_action('init', function() {
     register_taxonomy_for_object_type('rennklasse', 'team');
+
+    // Pods-Pod-Einstellungen aktualisieren, damit die Verbindung im Pods-UI gesetzt wird
+    if (function_exists('pods_api')) {
+        // Stelle sicher, dass 'kategorie' das Objekt 'fahrer' enthält
+        if (pods_api()->load_pod(array('name' => 'kategorie', 'type' => 'taxonomy'))) {
+            pods_api()->save_pod(array(
+                'name' => 'kategorie',
+                'object_types' => array('fahrer'),
+            ));
+        }
+
+        // Stelle sicher, dass 'rennklasse' das Objekt 'team' enthält
+        if (pods_api()->load_pod(array('name' => 'rennklasse', 'type' => 'taxonomy'))) {
+            pods_api()->save_pod(array(
+                'name' => 'rennklasse',
+                'object_types' => array('team'),
+            ));
+        }
+    }
 });
 
 /**
