@@ -91,7 +91,9 @@ add_filter('manage_team_posts_columns', function($columns) {
 	$columns['rennklasse'] = 'Rennklasse';
     $columns['teammanager'] = 'Name Sportlicher Leiter/Teammanager';
 	$columns['e-mail'] = 'E-Mail';
-	
+    $columns['iban'] = 'IBAN';
+    $columns['bic'] = 'BIC';
+    $columns['kontoinhaber'] = 'Kontoinhaber';
 	# remove date and statistics column
     #unset($columns['date']);
 	unset($columns['stats']);
@@ -294,7 +296,7 @@ add_action('admin_notices', function () {
     echo '</div>';
 });
 
-
+/*
 // Synchronisation: Wenn im Fahrer-Edit Screen die Kategorie ausgewählt wird, soll automatisch die entsprechende Kategorie-Taxonomie am Fahrer gesetzt werden (und umgekehrt)
 add_action('save_post', 'sync_relationship_field_with_taxonomy', 10, 3);
 
@@ -313,7 +315,7 @@ function sync_relationship_field_with_taxonomy($post_id) {
         }
     }
     if ($post_type == 'fahrer') {
-        $relationship_field = get_post_meta($post_id, 'renn-kategorie', true);
+        $relationship_field = get_post_meta($post_id, 'fahrer-kategorie', true);
         if (!empty($relationship_field)) {
             wp_set_post_terms($post_id, array($relationship_field), 'kategorie');
         } else {
@@ -321,6 +323,7 @@ function sync_relationship_field_with_taxonomy($post_id) {
         }
     }
 }
+    */
 
 require_once MELDETOOL_PLUGIN_DIR . 'export_rider_list.php';
 
@@ -411,7 +414,7 @@ register_activation_hook(__FILE__, function() {
                 array('name' => 'nachname', 'label' => 'Nachname', 'type' => 'text', 'required' => true),
                 array('name' => 'vorname', 'label' => 'Vorname', 'type' => 'text', 'required' => true),
                 array('name' => 'team', 'label' => 'Team', 'type' => 'pick', 'pick_object' => 'post_type', 'pick_val' => 'team', 'required' => true),
-                array('name' => 'renn-kategorie', 'label' => 'Kategorie', 'type' => 'taxonomy', 'taxonomy' => 'kategorie', 'required' => true, 'options' => array('sync' => 1)),
+                array('name' => 'fahrer-kategorie', 'label' => 'Kategorie', 'type' => 'pick', 'taxonomy' => 'kategorie', 'required' => true, 'options' => array('sync' => 1)),
                 array('name' => 'lizenznummer', 'label' => 'Nationale Lizenznummer', 'type' => 'text', 'required' => true),
                 array('name' => 'uci_id', 'label' => 'UCI-ID', 'type' => 'text', 'required' => true),
                 array('name' => 'ist_kapitaen', 'label' => 'Fahrer*in ist Kapitän*in? (1x pro Team)', 'type' => 'boolean'),
