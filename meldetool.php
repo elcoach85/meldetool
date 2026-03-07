@@ -495,7 +495,11 @@ register_activation_hook(__FILE__, function() {
     //register_taxonomy_for_object_type('rennklasse', 'team');
     // Verbindung Taxonomie 'kategorie' mit Post Type 'fahrer' sicherstellen
     //register_taxonomy_for_object_type('kategorie', 'fahrer');
+    
+    register_post_type('team', ['taxonomies' => ['rennklasse']]);
+    register_post_type('fahrer', ['taxonomies' => ['kategorie']]);
 
+    /*
     $res = pods_api()->save_pod(['name'=>'rennklasse','object_types'=>['team']]);
     if (is_wp_error($res)) {
         $errors = array_merge($errors, $res->get_error_messages());
@@ -503,7 +507,7 @@ register_activation_hook(__FILE__, function() {
     $res = pods_api()->save_pod(['name'=>'kategorie','object_types'=>['fahrer']]);
     if (is_wp_error($res)) {
         $errors = array_merge($errors, $res->get_error_messages());
-    }
+    }*/
 
     // Hinweis für Administratoren setzen: manuelle Verknüpfung in Pods prüfen
     set_transient('meldetool_show_pod_connections_notice', 1, 60);
