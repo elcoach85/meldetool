@@ -481,6 +481,20 @@ register_activation_hook(__FILE__, function() {
     register_taxonomy_for_object_type('rennklasse', 'team');
     // Verbindung Taxonomie 'kategorie' mit Post Type 'fahrer' sicherstellen
     register_taxonomy_for_object_type('kategorie', 'fahrer');
+
+    // Hinweis für Administratoren setzen: manuelle Verknüpfung in Pods prüfen
+    set_transient('meldetool_show_pod_connections_notice', 1, 60);
+});
+
+// Beim Admin-Login nach Aktivierung Hinweis anzeigen, dass Pods-Verbindungen manuell geprüft werden sollen
+add_action('admin_notices', function() {
+    if (!current_user_can('manage_options')) return;
+    if (!get_transient('meldetool_show_pod_connections_notice')) return;
+
+    // Entfernen, damit der Hinweis nur einmal angezeigt wird
+    delete_transient('meldetool_show_pod_connections_notice');
+
+    echo '<div class="notice notice-info is-dismissible"><p><strong>Meldetool:</strong> Bitte in Pods → rennklasse → Verbindungen den Eintrag "team" anhaken und in Pods → kategorie → Verbindungen den Eintrag "fahrer" anhaken. Danach ggf. Pods-Cache leeren.</p></div>';
 });
 
 
