@@ -421,7 +421,7 @@ register_activation_hook(__FILE__, function() {
             'storage' => 'meta',
             'fields' => array(
                 array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text', 'required' => true),
-                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse', 'options' => array('sync' => 1), 'required' => true),
+                array('name' => 'team-rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse', 'options' => array('sync' => 1), 'required' => true),
                 array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text', 'required' => true),
                 array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email', 'required' => true),
                 array('name' => 'iban', 'label' => 'IBAN (für Preisgelder)', 'type' => 'text'),
