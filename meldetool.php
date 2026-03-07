@@ -407,9 +407,28 @@ register_activation_hook(__FILE__, function() {
             wp_insert_term($rennklasse, 'rennklasse');
         }
     }
-    // Verbindung Taxonomie 'rennklasse' mit Post Type 'team' sicherstellen
-    register_taxonomy_for_object_type('rennklasse', 'team');
 
+    // Team Pod anlegen
+    if (!pods_api()->load_pod(array('name' => 'team', 'type' => 'post_type'))) {
+        pods_api()->save_pod(array(
+            'name' => 'team',
+            'label' => 'Teams',
+            'label_singular' => 'Team',
+            'type' => 'post_type',
+            'public' => true,
+            'show_ui' => true,
+            'hierarchical' => false,
+            'storage' => 'meta',
+            'fields' => array(
+                array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text', 'required' => true),
+                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse', 'options' => array('sync' => 1), 'required' => true),
+                array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text', 'required' => true),
+                array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email', 'required' => true),
+                array('name' => 'iban', 'label' => 'IBAN (für Preisgelder)', 'type' => 'text'),
+                array('name' => 'bic', 'label' => 'BIC (für Preisgelder)', 'type' => 'text'),
+                array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (für Preisgelder)', 'type' => 'text'),
+            ),
+        ));
     // Fahrer Pod anlegen
     if (!pods_api()->load_pod(array('name' => 'fahrer', 'type' => 'post_type'))) {
         pods_api()->save_pod(array(
@@ -456,29 +475,10 @@ register_activation_hook(__FILE__, function() {
             ),
         ));
     }
-    // Team Pod anlegen
-    if (!pods_api()->load_pod(array('name' => 'team', 'type' => 'post_type'))) {
-        pods_api()->save_pod(array(
-            'name' => 'team',
-            'label' => 'Teams',
-            'label_singular' => 'Team',
-            'type' => 'post_type',
-            'public' => true,
-            'show_ui' => true,
-            'hierarchical' => false,
-            'storage' => 'meta',
-            'fields' => array(
-                array('name' => 'teamname', 'label' => 'Teamname', 'type' => 'text', 'required' => true),
-                array('name' => 'rennklasse', 'label' => 'Rennklasse', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'rennklasse', 'options' => array('sync' => 1), 'required' => true),
-                array('name' => 'teammanager', 'label' => 'Name Sportlicher Leiter*in/Teammanager*in', 'type' => 'text', 'required' => true),
-                array('name' => 'email_manager', 'label' => 'E-Mail Teammanager*in', 'type' => 'email', 'required' => true),
-                array('name' => 'iban', 'label' => 'IBAN (für Preisgelder)', 'type' => 'text'),
-                array('name' => 'bic', 'label' => 'BIC (für Preisgelder)', 'type' => 'text'),
-                array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (für Preisgelder)', 'type' => 'text'),
-            ),
-        ));
     }
 
+    // Verbindung Taxonomie 'rennklasse' mit Post Type 'team' sicherstellen
+    register_taxonomy_for_object_type('rennklasse', 'team');
     // Verbindung Taxonomie 'kategorie' mit Post Type 'fahrer' sicherstellen
     register_taxonomy_for_object_type('kategorie', 'fahrer');
 });
