@@ -342,9 +342,11 @@ register_activation_hook(__FILE__, function() {
         wp_die('Das Plugin "Pods" muss aktiviert sein, damit das Meldetool funktioniert.');
     }
 
+    $errors = array();
+
     // Kategorie-Taxonomie (Meta Storage)
     if (!pods_api()->load_pod(array('name' => 'kategorie', 'type' => 'taxonomy'))) {
-        pods_api()->save_pod(array(
+        $res = pods_api()->save_pod(array(
             'name' => 'kategorie',
             'label' => 'Fahrerkategorien',
             'label_singular' => 'Fahrerkategorie',
@@ -355,6 +357,9 @@ register_activation_hook(__FILE__, function() {
             'storage' => 'meta',
             'object_types' => array('fahrer'),
         ));
+        if (is_wp_error($res)) {
+            $errors = array_merge($errors, $res->get_error_messages());
+        }
     }
         
     // Kategorie-Terms anlegen
@@ -378,7 +383,7 @@ register_activation_hook(__FILE__, function() {
 
     // Rennklasse-Taxonomie (Meta Storage)
     if (!pods_api()->load_pod(array('name' => 'rennklasse', 'type' => 'taxonomy'))) {
-        pods_api()->save_pod(array(
+        $res = pods_api()->save_pod(array(
             'name' => 'rennklasse',
             'label' => 'Rennklassen',
             'label_singular' => 'Rennklasse',
@@ -389,6 +394,9 @@ register_activation_hook(__FILE__, function() {
             'storage' => 'meta',
             'object_types' => array('team'),
         ));
+        if (is_wp_error($res)) {
+            $errors = array_merge($errors, $res->get_error_messages());
+        }
     }
 
     // Rennklassen-Terms anlegen
@@ -410,7 +418,7 @@ register_activation_hook(__FILE__, function() {
 
     // Team Pod anlegen
     if (!pods_api()->load_pod(array('name' => 'team', 'type' => 'post_type'))) {
-        pods_api()->save_pod(array(
+        $res = pods_api()->save_pod(array(
             'name' => 'team',
             'label' => 'Teams',
             'label_singular' => 'Team',
@@ -429,9 +437,12 @@ register_activation_hook(__FILE__, function() {
                 array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (für Preisgelder)', 'type' => 'text'),
             ),
         ));
+        if (is_wp_error($res)) {
+            $errors = array_merge($errors, $res->get_error_messages());
+        }
     // Fahrer Pod anlegen
     if (!pods_api()->load_pod(array('name' => 'fahrer', 'type' => 'post_type'))) {
-        pods_api()->save_pod(array(
+        $res = pods_api()->save_pod(array(
             'name' => 'fahrer',
             'label' => 'Fahrer*innen',
             'label_singular' => 'Fahrer*in',
@@ -474,16 +485,31 @@ register_activation_hook(__FILE__, function() {
                 array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (nur Einzelstarter)', 'type' => 'text'),
             ),
         ));
+        if (is_wp_error($res)) {
+            $errors = array_merge($errors, $res->get_error_messages());
+        }
     }
     }
 
     // Verbindung Taxonomie 'rennklasse' mit Post Type 'team' sicherstellen
-    register_taxonomy_for_object_type('rennklasse', 'team');
+    //register_taxonomy_for_object_type('rennklasse', 'team');
     // Verbindung Taxonomie 'kategorie' mit Post Type 'fahrer' sicherstellen
-    register_taxonomy_for_object_type('kategorie', 'fahrer');
+    //register_taxonomy_for_object_type('kategorie', 'fahrer');
+
+    $res = pods_api()->save_pod(['name'=>'rennklasse','object_types'=>['team']]);
+    if (is_wp_error($res)) {
+        $errors = array_merge($errors, $res->get_error_messages());
+    }
+    $res = pods_api()->save_pod(['name'=>'kategorie','object_types'=>['fahrer']]);
+    if (is_wp_error($res)) {
+        $errors = array_merge($errors, $res->get_error_messages());
+    }
 
     // Hinweis für Administratoren setzen: manuelle Verknüpfung in Pods prüfen
     set_transient('meldetool_show_pod_connections_notice', 1, 60);
+    if (!empty($errors)) {
+        set_transient('meldetool_activation_errors', $errors, 60);
+    }
 });
 
 // Beim Admin-Login nach Aktivierung Hinweis anzeigen, dass Pods-Verbindungen manuell geprüft werden sollen
@@ -495,6 +521,21 @@ add_action('admin_notices', function() {
     delete_transient('meldetool_show_pod_connections_notice');
 
     echo '<div class="notice notice-info is-dismissible"><p><strong>Meldetool:</strong> Bitte in Pods → rennklasse → Verbindungen den Eintrag "team" anhaken und in Pods → kategorie → Verbindungen den Eintrag "fahrer" anhaken. Danach ggf. Pods-Cache leeren.</p></div>';
+});
+
+// Admin notice: Zeige Pods-Aktivierungsfehler (falls vorhanden)
+add_action('admin_notices', function() {
+    if (!current_user_can('manage_options')) return;
+    $errors = get_transient('meldetool_activation_errors');
+    if (!$errors) return;
+
+    delete_transient('meldetool_activation_errors');
+
+    echo '<div class="notice notice-error is-dismissible"><p><strong>Meldetool Aktivierungsfehler (Pods):</strong></p><ul>';
+    foreach ($errors as $err) {
+        echo '<li>' . esc_html($err) . '</li>';
+    }
+    echo '</ul><p>Bitte prüfen Sie Pods → Einstellungen und leeren Sie ggf. den Pods-Cache.</p></div>';
 });
 
 
