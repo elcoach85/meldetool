@@ -346,6 +346,7 @@ register_activation_hook(__FILE__, function() {
             'show_ui' => true,
             'hierarchical' => false,
             'storage' => 'meta',
+            'object_types' => array('fahrer'),
         ));
     }
         
@@ -379,6 +380,7 @@ register_activation_hook(__FILE__, function() {
             'show_ui' => true,
             'hierarchical' => false,
             'storage' => 'meta',
+            'object_types' => array('team'),
         ));
     }
 
