@@ -439,9 +439,9 @@ register_activation_hook(__FILE__, function() {
                         'USA' => 'Vereinigte Staaten von Amerika',
                         'ZAF' => 'Südafrika',
                     ), 'allow_other' => true, 'required' => true),
-                array('name' => 'iban', 'label' => 'IBAN (nur Einzelstarter)', 'type' => 'text', 'required' => true),
-                array('name' => 'bic', 'label' => 'BIC (nur Einzelstarter)', 'type' => 'text', 'required' => true),
-                array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (nur Einzelstarter)', 'type' => 'text', 'required' => true),
+                array('name' => 'iban', 'label' => 'IBAN (nur Einzelstarter)', 'type' => 'text'),
+                array('name' => 'bic', 'label' => 'BIC (nur Einzelstarter)', 'type' => 'text'),
+                array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (nur Einzelstarter)', 'type' => 'text'),
             ),
         ));
     }
