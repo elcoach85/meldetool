@@ -23,6 +23,23 @@ add_action('init', function() {
     register_taxonomy_for_object_type('rennklasse', 'team');
 });
 
+// Im Admin die Pods-Pod-Einstellungen aktualisieren, damit die Pods-UI die Verknüpfung anzeigt
+add_action('admin_init', function() {
+    if (!function_exists('pods_api')) return;
+    if (!current_user_can('manage_options')) return;
+
+    // Setze object_types für 'rennklasse' und 'kategorie'
+    pods_api()->save_pod(array(
+        'name' => 'rennklasse',
+        'object_types' => array('team'),
+    ));
+
+    pods_api()->save_pod(array(
+        'name' => 'kategorie',
+        'object_types' => array('fahrer'),
+    ));
+});
+
 /**
  * Fahrername
  */
