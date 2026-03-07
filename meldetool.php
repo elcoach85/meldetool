@@ -414,7 +414,7 @@ register_activation_hook(__FILE__, function() {
                 array('name' => 'nachname', 'label' => 'Nachname', 'type' => 'text', 'required' => true),
                 array('name' => 'vorname', 'label' => 'Vorname', 'type' => 'text', 'required' => true),
                 array('name' => 'team', 'label' => 'Team', 'type' => 'pick', 'pick_object' => 'post_type', 'pick_val' => 'team', 'required' => true),
-                array('name' => 'fahrer-kategorie', 'label' => 'Kategorie', 'type' => 'pick', 'taxonomy' => 'kategorie', 'required' => true, 'options' => array('sync' => 1)),
+                array('name' => 'fahrer-kategorie', 'label' => 'Kategorie', 'type' => 'pick', 'pick_object' => 'taxonomy', 'pick_val' => 'kategorie', 'required' => true, 'options' => array('sync' => 1)),
                 array('name' => 'lizenznummer', 'label' => 'Nationale Lizenznummer', 'type' => 'text', 'required' => true),
                 array('name' => 'uci_id', 'label' => 'UCI-ID', 'type' => 'text', 'required' => true),
                 array('name' => 'ist_kapitaen', 'label' => 'Fahrer*in ist Kapitän*in? (1x pro Team)', 'type' => 'boolean'),
