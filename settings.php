@@ -20,14 +20,20 @@ add_action('admin_init', function() {
 
     add_settings_field('from_email', 'Absender-E-Mail', function() {
         $opts = get_option('meldetool_options', array());
-        $val = isset($opts['from_email']) ? esc_attr($opts['from_email']) : 'orga@the-race-days-stuttgart.de';
-        printf('<input type="email" name="meldetool_options[from_email]" value="%s" class="regular-text" />', $val);
+        $val = isset($opts['from_email']) ? esc_attr($opts['from_email']) : '';
+        printf('<input type="email" name="meldetool_options[from_email]" value="%s" class="regular-text" placeholder="orga@the-race-days-stuttgart.de" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
     add_settings_field('reply_to', 'Reply-To', function() {
         $opts = get_option('meldetool_options', array());
         $val = isset($opts['reply_to']) ? esc_attr($opts['reply_to']) : '';
-        printf('<input type="email" name="meldetool_options[reply_to]" value="%s" class="regular-text" />', $val);
+        printf('<input type="email" name="meldetool_options[reply_to]" value="%s" class="regular-text" placeholder="orga@the-race-days-stuttgart.de" />', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('cc_email', 'CC-E-Mail (Kopie der Bestätigung)', function() {
+        $opts = get_option('meldetool_options', array());
+        $val = isset($opts['cc_email']) ? esc_attr($opts['cc_email']) : '';
+        printf('<input type="email" name="meldetool_options[cc_email]" value="%s" class="regular-text" placeholder="orga@the-race-days-stuttgart.de" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
     add_settings_field('confirmation_subject', 'E-Mail Betreff', function() {
@@ -48,6 +54,7 @@ function meldetool_sanitize_options($input) {
     $out['send_confirmation'] = !empty($input['send_confirmation']) ? 1 : 0;
     $out['from_email'] = !empty($input['from_email']) && is_email($input['from_email']) ? sanitize_email($input['from_email']) : '';
     $out['reply_to'] = !empty($input['reply_to']) && is_email($input['reply_to']) ? sanitize_email($input['reply_to']) : '';
+    $out['cc_email'] = !empty($input['cc_email']) && is_email($input['cc_email']) ? sanitize_email($input['cc_email']) : '';
     $out['confirmation_subject'] = !empty($input['confirmation_subject']) ? sanitize_text_field($input['confirmation_subject']) : '';
     $out['confirmation_message'] = !empty($input['confirmation_message']) ? wp_kses_post($input['confirmation_message']) : '';
     return $out;

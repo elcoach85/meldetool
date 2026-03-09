@@ -94,6 +94,9 @@ add_action('save_post_team', function($post_id, $post, $update) {
                     if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
                         $headers[] = 'Reply-To: ' . $opts['reply_to'];
                     }
+                    // CC-Adresse aus Einstellungen oder Default
+                    $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
+                    $headers[] = 'Cc: ' . $cc;
 
                     wp_mail($email, $subject, $message, $headers);
                 }
