@@ -98,7 +98,17 @@ add_action('save_post_team', function($post_id, $post, $update) {
                     $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
                     $headers[] = 'Cc: ' . $cc;
 
-                    wp_mail($email, $subject, $message, $headers);
+                    $mail_result = wp_mail($email, $subject, $message, $headers);
+                    // Logging
+                    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+                    $log_entry = date('Y-m-d H:i:s') . " | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
+                    $log_entry .= "To: $email\nSubject: $subject\nHeaders: " . print_r($headers, true) . "\n";
+                    $log_entry .= "Message: $message\n";
+                    if (!$mail_result) {
+                        $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
+                    }
+                    $log_entry .= str_repeat('-', 60) . "\n";
+                    file_put_contents($logfile, $log_entry, FILE_APPEND);
                 }
             }
         }
