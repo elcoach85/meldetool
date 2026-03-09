@@ -127,7 +127,7 @@ add_filter('manage_team_posts_columns', function($columns) {
     $columns['teamname'] = 'Teamname';
 	$columns['rennklasse'] = 'Rennklasse';
     $columns['teammanager'] = 'Name Sportlicher Leiter/Teammanager';
-	$columns['e-mail'] = 'E-Mail';
+	$columns['email_manager'] = 'E-Mail';
     $columns['iban'] = 'IBAN';
     $columns['bic'] = 'BIC';
     $columns['kontoinhaber'] = 'Kontoinhaber';
@@ -189,7 +189,7 @@ add_action('manage_team_posts_custom_column', function($column, $post_id) {
     switch ($column) {
         case 'teamname':
         case 'teammanager':
-        case 'e-mail':
+        case 'email_manager':
             echo esc_html(get_post_meta($post_id, $column, true));
             break;
 
