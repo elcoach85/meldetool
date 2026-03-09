@@ -128,9 +128,9 @@ add_filter('manage_team_posts_columns', function($columns) {
 	$columns['rennklasse'] = 'Rennklasse';
     $columns['teammanager'] = 'Name Sportlicher Leiter/Teammanager';
 	$columns['email_manager'] = 'E-Mail';
-    $columns['iban'] = 'IBAN';
-    $columns['bic'] = 'BIC';
-    $columns['kontoinhaber'] = 'Kontoinhaber';
+    //$columns['iban'] = 'IBAN';
+    //$columns['bic'] = 'BIC';
+    //$columns['kontoinhaber'] = 'Kontoinhaber';
 	# remove date and statistics column
     #unset($columns['date']);
 	unset($columns['stats']);
