@@ -1,4 +1,4 @@
-
+<?php
 // Taxonomien und Terms bei Plugin-Aktivierung mit Pods anlegen
 register_activation_hook(__FILE__, function() {
     if (!function_exists('pods_api')) {

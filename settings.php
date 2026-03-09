@@ -1,3 +1,4 @@
+<?php
 /* Settings page for Meldetool ------------------------------------------------- */
 
 add_action('admin_menu', function() {
