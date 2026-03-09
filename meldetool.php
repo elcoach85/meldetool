@@ -76,16 +76,27 @@ add_action('save_post_team', function($post_id, $post, $update) {
         if (!$update && !is_admin()) {
             $email = get_post_meta($post_id, 'email_manager', true);
             if (!empty($email) && is_email($email)) {
-                $subject = 'Bestätigung: Team-Anmeldung erhalten';
-                $message = "Hallo\n\n";
-                $message .= sprintf("Ihr Team \"%s\" wurde erfolgreich für die Veranstaltung angemeldet.\n\n", $new_title);
-                $message .= "Falls Änderungen nötig sind, können Sie sich bei uns melden.\n\n";
-                $message .= "Mit freundlichen Grüßen\nIhr Meldetool-Team";
+                $opts = get_option('meldetool_options', array());
 
-                // Kopfzeile setzen (optional)
-                $headers = array('Content-Type: text/plain; charset=UTF-8');
+                $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
+                if ($enabled) {
+                    $subject = !empty($opts['confirmation_subject']) ? $opts['confirmation_subject'] : 'Bestätigung: Team-Anmeldung erhalten';
+                    $default_message = "Hallo\n\n" . sprintf("Ihr Team \"%s\" wurde erfolgreich für die Veranstaltung angemeldet.\n\n", $new_title) . "Falls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Meldetool-Team";
+                    $message = !empty($opts['confirmation_message']) ? $opts['confirmation_message'] : $default_message;
 
-                wp_mail($email, $subject, $message, $headers);
+                    // Platzhalter ersetzen (z.B. {teamname})
+                    $message = str_replace('{teamname}', $new_title, $message);
+
+                    $headers = array('Content-Type: text/plain; charset=UTF-8');
+                    if (!empty($opts['from_email']) && is_email($opts['from_email'])) {
+                        $headers[] = 'From: ' . $opts['from_email'];
+                    }
+                    if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
+                        $headers[] = 'Reply-To: ' . $opts['reply_to'];
+                    }
+
+                    wp_mail($email, $subject, $message, $headers);
+                }
             }
         }
 
@@ -530,6 +541,17 @@ register_activation_hook(__FILE__, function() {
     if (!empty($errors)) {
         set_transient('meldetool_activation_errors', $errors, 60);
     }
+    // Meldetool-Optionen mit Defaults anlegen, falls nicht vorhanden
+    if (!get_option('meldetool_options')) {
+        $defaults = array(
+            'send_confirmation' => 1,
+            'from_email' => '',
+            'reply_to' => '',
+            'confirmation_subject' => 'Bestätigung: Team-Anmeldung erhalten',
+            'confirmation_message' => "Hallo\n\nIhr Team '{teamname}' wurde erfolgreich für die Race Days Stuttgart angemeldet.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Race-Days-Team"
+        );
+        add_option('meldetool_options', $defaults);
+    }
 });
 
 // Beim Admin-Login nach Aktivierung Hinweis anzeigen, dass Pods-Verbindungen manuell geprüft werden sollen
@@ -581,3 +603,71 @@ function meldetool_uninstall() {
         }
     }
 }
+
+/* Settings page for Meldetool ------------------------------------------------- */
+
+add_action('admin_menu', function() {
+    add_options_page('Meldetool Einstellungen', 'Meldetool', 'manage_options', 'meldetool-settings', 'meldetool_settings_page');
+});
+
+add_action('admin_init', function() {
+    register_setting('meldetool_settings', 'meldetool_options', 'meldetool_sanitize_options');
+
+    add_settings_section('meldetool_main', 'Allgemeine Einstellungen', function() {
+        echo '<p>Einstellungen für E-Mail-Benachrichtigungen und Vorlagen.</p>';
+    }, 'meldetool_settings');
+
+    add_settings_field('send_confirmation', 'Bestätigungs-E-Mails senden', function() {
+        $opts = get_option('meldetool_options', array());
+        $val = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
+        printf('<input type="checkbox" name="meldetool_options[send_confirmation]" value="1" %s />', checked(1, (int) $val, false));
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('from_email', 'Absender-E-Mail', function() {
+        $opts = get_option('meldetool_options', array());
+        $val = isset($opts['from_email']) ? esc_attr($opts['from_email']) : '';
+        printf('<input type="email" name="meldetool_options[from_email]" value="%s" class="regular-text" />', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('reply_to', 'Reply-To', function() {
+        $opts = get_option('meldetool_options', array());
+        $val = isset($opts['reply_to']) ? esc_attr($opts['reply_to']) : '';
+        printf('<input type="email" name="meldetool_options[reply_to]" value="%s" class="regular-text" />', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('confirmation_subject', 'E-Mail Betreff', function() {
+        $opts = get_option('meldetool_options', array());
+        $val = isset($opts['confirmation_subject']) ? esc_attr($opts['confirmation_subject']) : '';
+        printf('<input type="text" name="meldetool_options[confirmation_subject]" value="%s" class="regular-text" />', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('confirmation_message', 'E-Mail Nachricht (Platzhalter: {teamname})', function() {
+        $opts = get_option('meldetool_options', array());
+        $val = isset($opts['confirmation_message']) ? esc_textarea($opts['confirmation_message']) : '';
+        printf('<textarea name="meldetool_options[confirmation_message]" rows="8" class="large-text">%s</textarea>', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+});
+
+function meldetool_sanitize_options($input) {
+    $out = array();
+    $out['send_confirmation'] = !empty($input['send_confirmation']) ? 1 : 0;
+    $out['from_email'] = !empty($input['from_email']) && is_email($input['from_email']) ? sanitize_email($input['from_email']) : '';
+    $out['reply_to'] = !empty($input['reply_to']) && is_email($input['reply_to']) ? sanitize_email($input['reply_to']) : '';
+    $out['confirmation_subject'] = !empty($input['confirmation_subject']) ? sanitize_text_field($input['confirmation_subject']) : '';
+    $out['confirmation_message'] = !empty($input['confirmation_message']) ? wp_kses_post($input['confirmation_message']) : '';
+    return $out;
+}
+
+function meldetool_settings_page() {
+    if (!current_user_can('manage_options')) return;
+    echo '<div class="wrap">';
+    echo '<h1>Meldetool Einstellungen</h1>';
+    echo '<form method="post" action="options.php">';
+    settings_fields('meldetool_settings');
+    do_settings_sections('meldetool_settings');
+    submit_button();
+    echo '</form>';
+    echo '</div>';
+}
+
+/* End settings --------------------------------------------------------------- */
