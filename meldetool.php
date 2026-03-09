@@ -72,6 +72,22 @@ add_action('save_post_team', function($post_id, $post, $update) {
             ]);
         }
     }
+        // Wenn ein neues Team (nicht Update) über Frontend erstellt wurde, Bestätigungs-E-Mail an Teammanager senden
+        if (!$update && !is_admin()) {
+            $email = get_post_meta($post_id, 'email_manager', true);
+            if (!empty($email) && is_email($email)) {
+                $subject = 'Bestätigung: Team-Anmeldung erhalten';
+                $message = "Hallo\n\n";
+                $message .= sprintf("Ihr Team \"%s\" wurde erfolgreich für die Veranstaltung angemeldet.\n\n", $new_title);
+                $message .= "Falls Änderungen nötig sind, können Sie sich bei uns melden.\n\n";
+                $message .= "Mit freundlichen Grüßen\nIhr Meldetool-Team";
+
+                // Kopfzeile setzen (optional)
+                $headers = array('Content-Type: text/plain; charset=UTF-8');
+
+                wp_mail($email, $subject, $message, $headers);
+            }
+        }
 
 }, 10, 3);
 
