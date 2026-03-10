@@ -6,19 +6,6 @@ add_action('admin_menu', function() {
 });
 
 add_action('admin_init', function() {
-        add_settings_field('confirmation_subject_publish', 'E-Mail Betreff (Veröffentlichung)', function() {
-            $opts = get_option('meldetool_options', array());
-            $default_subject = 'Ihr Team wurde in der Datenbank angelegt';
-            $val = isset($opts['confirmation_subject_publish']) && $opts['confirmation_subject_publish'] !== '' ? esc_attr($opts['confirmation_subject_publish']) : $default_subject;
-            printf('<input type="text" name="meldetool_options[confirmation_subject_publish]" value="%s" class="regular-text" />', $val);
-        }, 'meldetool_settings', 'meldetool_main');
-
-        add_settings_field('confirmation_message_publish', 'E-Mail Nachricht (Veröffentlichung, Platzhalter: {teamname})', function() {
-            $opts = get_option('meldetool_options', array());
-            $default_message = "Hallo\n\nIhr Team '{teamname}' wurde nun in der Datenbank angelegt und ist offiziell für die Veranstaltung angemeldet.\n\nSie können nun Fahrer hinzufügen oder Änderungen vornehmen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team";
-            $val = isset($opts['confirmation_message_publish']) && $opts['confirmation_message_publish'] !== '' ? esc_textarea($opts['confirmation_message_publish']) : $default_message;
-            printf('<textarea name="meldetool_options[confirmation_message_publish]" rows="8" class="large-text">%s</textarea>', $val);
-        }, 'meldetool_settings', 'meldetool_main');
     register_setting('meldetool_settings', 'meldetool_options', 'meldetool_sanitize_options');
 
     add_settings_section('meldetool_main', 'Allgemeine Einstellungen', function() {
@@ -58,9 +45,23 @@ add_action('admin_init', function() {
 
     add_settings_field('confirmation_message', 'E-Mail Nachricht (Platzhalter: {teamname})', function() {
         $opts = get_option('meldetool_options', array());
-        $default_message = "Hallo\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Racedays-Team";
+        $default_message = "Hallo\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden. Sobald das Team offiziell angemeldet ist, werden Sie von uns benachrichtigt.\n\nMit freundlichen Grüßen\nIhr Racedays-Team";
         $val = isset($opts['confirmation_message']) && $opts['confirmation_message'] !== '' ? esc_textarea($opts['confirmation_message']) : $default_message;
         printf('<textarea name="meldetool_options[confirmation_message]" rows="8" class="large-text">%s</textarea>', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('confirmation_subject_publish', 'E-Mail Betreff (Veröffentlichung)', function() {
+        $opts = get_option('meldetool_options', array());
+        $default_subject = 'Ihr Team wurde in der Datenbank angelegt';
+        $val = isset($opts['confirmation_subject_publish']) && $opts['confirmation_subject_publish'] !== '' ? esc_attr($opts['confirmation_subject_publish']) : $default_subject;
+        printf('<input type="text" name="meldetool_options[confirmation_subject_publish]" value="%s" class="regular-text" />', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('confirmation_message_publish', 'E-Mail Nachricht (Veröffentlichung, Platzhalter: {teamname})', function() {
+        $opts = get_option('meldetool_options', array());
+        $default_message = "Hallo\n\nIhr Team '{teamname}' ist nun offiziell für die Race Days Stuttgart angemeldet.\n\nSie können nun Fahrer hinzufügen oder Änderungen vornehmen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team";
+        $val = isset($opts['confirmation_message_publish']) && $opts['confirmation_message_publish'] !== '' ? esc_textarea($opts['confirmation_message_publish']) : $default_message;
+        printf('<textarea name="meldetool_options[confirmation_message_publish]" rows="8" class="large-text">%s</textarea>', $val);
     }, 'meldetool_settings', 'meldetool_main');
 });
 
