@@ -24,6 +24,45 @@ add_action('init', function() {
 });
 
 // Bestätigungsmail direkt nach Frontend-Formular (Pods) absenden
+// Bestätigungsmail auch über pods_api_post_save_pod_item_team absenden
+add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
+    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+    $log_entry = date('Y-m-d H:i:s') . " | PODS_API_POST_SAVE_POD_ITEM_TEAM | id: $id\n";
+    $log_entry .= str_repeat('-', 60) . "\n";
+    file_put_contents($logfile, $log_entry, FILE_APPEND);
+
+    $teamname = isset($data['teamname']) ? $data['teamname'] : get_post_meta($id, 'teamname', true);
+    $email = isset($data['email_manager']) ? $data['email_manager'] : get_post_meta($id, 'email_manager', true);
+    if (!empty($email) && is_email($email)) {
+        $opts = get_option('meldetool_options', array());
+        $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
+        if ($enabled) {
+            $subject = !empty($opts['confirmation_subject']) ? $opts['confirmation_subject'] : 'Bestätigung: Team-Anmeldung erhalten';
+            $default_message = "Hallo\n\n" . sprintf("Ihr Team \"%s\" wurde erfolgreich für die Veranstaltung angemeldet.\n\n", $teamname) . "Falls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Meldetool-Team";
+            $message = !empty($opts['confirmation_message']) ? $opts['confirmation_message'] : $default_message;
+            $message = str_replace('{teamname}', $teamname, $message);
+            $headers = array('Content-Type: text/plain; charset=UTF-8');
+            if (!empty($opts['from_email']) && is_email($opts['from_email'])) {
+                $headers[] = 'From: ' . $opts['from_email'];
+            }
+            if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
+                $headers[] = 'Reply-To: ' . $opts['reply_to'];
+            }
+            $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
+            $headers[] = 'Cc: ' . $cc;
+            $mail_result = wp_mail($email, $subject, $message, $headers);
+            // Logging
+            $log_entry = date('Y-m-d H:i:s') . " | PODS_API_POST_SAVE_POD_ITEM_TEAM | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
+            $log_entry .= "To: $email\nSubject: $subject\nHeaders: " . print_r($headers, true) . "\n";
+            $log_entry .= "Message: $message\n";
+            if (!$mail_result) {
+                $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
+            }
+            $log_entry .= str_repeat('-', 60) . "\n";
+            file_put_contents($logfile, $log_entry, FILE_APPEND);
+        }
+    }
+}, 10, 3);
 add_action('pods_form_post_save_team', function($fields, $pod) {
         $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
         $log_entry = date('Y-m-d H:i:s') . " | PODS_FORM_POST_SAVE_TEAM | fields_id: " . $fields['id'] . "\n";
@@ -98,7 +137,7 @@ add_action('save_post_fahrer', function($post_id, $post, $update) {
 add_action('save_post_team', function($post_id, $post, $update) {
     // Test-Log: Wird die Funktion überhaupt aufgerufen?
     $testlog = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
-    file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team HOOK called | post_id: $post_id | update: $update | is_admin: " . (is_admin() ? '1' : '0') . "\n", FILE_APPEND);
+    file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team HOOK called | post_id: $post_id | update: $update | is_admin: " . (is_admin() ? '1' : '0') . " | wp_is_post_autosave: " . (wp_is_post_autosave($post_id) ? '1' : '0') . " | wp_is_post_revision: " . (wp_is_post_revision($post_id) ? '1' : '0') . "\n", FILE_APPEND);
 
     if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
         return;
