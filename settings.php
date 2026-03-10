@@ -6,6 +6,19 @@ add_action('admin_menu', function() {
 });
 
 add_action('admin_init', function() {
+        add_settings_field('confirmation_subject_publish', 'E-Mail Betreff (Veröffentlichung)', function() {
+            $opts = get_option('meldetool_options', array());
+            $default_subject = 'Ihr Team wurde in der Datenbank angelegt';
+            $val = isset($opts['confirmation_subject_publish']) && $opts['confirmation_subject_publish'] !== '' ? esc_attr($opts['confirmation_subject_publish']) : $default_subject;
+            printf('<input type="text" name="meldetool_options[confirmation_subject_publish]" value="%s" class="regular-text" />', $val);
+        }, 'meldetool_settings', 'meldetool_main');
+
+        add_settings_field('confirmation_message_publish', 'E-Mail Nachricht (Veröffentlichung, Platzhalter: {teamname})', function() {
+            $opts = get_option('meldetool_options', array());
+            $default_message = "Hallo\n\nIhr Team '{teamname}' wurde nun in der Datenbank angelegt und ist offiziell für die Veranstaltung angemeldet.\n\nSie können nun Fahrer hinzufügen oder Änderungen vornehmen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team";
+            $val = isset($opts['confirmation_message_publish']) && $opts['confirmation_message_publish'] !== '' ? esc_textarea($opts['confirmation_message_publish']) : $default_message;
+            printf('<textarea name="meldetool_options[confirmation_message_publish]" rows="8" class="large-text">%s</textarea>', $val);
+        }, 'meldetool_settings', 'meldetool_main');
     register_setting('meldetool_settings', 'meldetool_options', 'meldetool_sanitize_options');
 
     add_settings_section('meldetool_main', 'Allgemeine Einstellungen', function() {
@@ -52,6 +65,12 @@ add_action('admin_init', function() {
 });
 
 function meldetool_sanitize_options($input) {
+        $out['confirmation_subject_publish'] = isset($input['confirmation_subject_publish']) && $input['confirmation_subject_publish'] !== ''
+            ? sanitize_text_field($input['confirmation_subject_publish'])
+            : 'Ihr Team wurde in der Datenbank angelegt';
+        $out['confirmation_message_publish'] = isset($input['confirmation_message_publish']) && $input['confirmation_message_publish'] !== ''
+            ? wp_kses_post($input['confirmation_message_publish'])
+            : "Hallo\n\nIhr Team '{teamname}' wurde nun in der Datenbank angelegt und ist offiziell für die Veranstaltung angemeldet.\n\nSie können nun Fahrer hinzufügen oder Änderungen vornehmen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team";
     $out = array();
     $out['send_confirmation'] = !empty($input['send_confirmation']) ? 1 : 0;
     $out['from_email'] = !empty($input['from_email']) && is_email($input['from_email']) ? sanitize_email($input['from_email']) : '';
