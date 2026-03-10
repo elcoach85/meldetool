@@ -38,13 +38,15 @@ add_action('admin_init', function() {
 
     add_settings_field('confirmation_subject', 'E-Mail Betreff', function() {
         $opts = get_option('meldetool_options', array());
-        $val = isset($opts['confirmation_subject']) ? esc_attr($opts['confirmation_subject']) : '';
+        $default_subject = 'Bestätigung: Team-Anmeldung erhalten';
+        $val = isset($opts['confirmation_subject']) && $opts['confirmation_subject'] !== '' ? esc_attr($opts['confirmation_subject']) : $default_subject;
         printf('<input type="text" name="meldetool_options[confirmation_subject]" value="%s" class="regular-text" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
     add_settings_field('confirmation_message', 'E-Mail Nachricht (Platzhalter: {teamname})', function() {
         $opts = get_option('meldetool_options', array());
-        $val = isset($opts['confirmation_message']) ? esc_textarea($opts['confirmation_message']) : '';
+        $default_message = "Hallo\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Racedays-Team";
+        $val = isset($opts['confirmation_message']) && $opts['confirmation_message'] !== '' ? esc_textarea($opts['confirmation_message']) : $default_message;
         printf('<textarea name="meldetool_options[confirmation_message]" rows="8" class="large-text">%s</textarea>', $val);
     }, 'meldetool_settings', 'meldetool_main');
 });
@@ -55,8 +57,12 @@ function meldetool_sanitize_options($input) {
     $out['from_email'] = !empty($input['from_email']) && is_email($input['from_email']) ? sanitize_email($input['from_email']) : '';
     $out['reply_to'] = !empty($input['reply_to']) && is_email($input['reply_to']) ? sanitize_email($input['reply_to']) : '';
     $out['cc_email'] = !empty($input['cc_email']) && is_email($input['cc_email']) ? sanitize_email($input['cc_email']) : '';
-    $out['confirmation_subject'] = !empty($input['confirmation_subject']) ? sanitize_text_field($input['confirmation_subject']) : '';
-    $out['confirmation_message'] = !empty($input['confirmation_message']) ? wp_kses_post($input['confirmation_message']) : '';
+    $out['confirmation_subject'] = isset($input['confirmation_subject']) && $input['confirmation_subject'] !== ''
+        ? sanitize_text_field($input['confirmation_subject'])
+        : 'Bestätigung: Team-Anmeldung erhalten';
+    $out['confirmation_message'] = isset($input['confirmation_message']) && $input['confirmation_message'] !== ''
+        ? wp_kses_post($input['confirmation_message'])
+        : "Hallo\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Racedays-Team";
     return $out;
 }
 

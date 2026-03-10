@@ -23,6 +23,35 @@ add_action('init', function() {
     register_taxonomy_for_object_type('rennklasse', 'team');
 });
 
+/**
+ * Gemeinsame Funktion für den Mailversand an Teammanager
+ */
+function meldetool_send_team_mail($email, $teamname, $subject, $message) {
+    $opts = get_option('meldetool_options', array());
+    $message = str_replace('{teamname}', $teamname, $message);
+    $headers = array('Content-Type: text/plain; charset=UTF-8');
+    if (!empty($opts['from_email']) && is_email($opts['from_email'])) {
+        $headers[] = 'From: ' . $opts['from_email'];
+    }
+    if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
+        $headers[] = 'Reply-To: ' . $opts['reply_to'];
+    }
+    $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
+    $headers[] = 'Cc: ' . $cc;
+    $mail_result = wp_mail($email, $subject, $message, $headers);
+    // Logging
+    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+    $log_entry = date('Y-m-d H:i:s') . " | TEAM_MAIL | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
+    $log_entry .= "To: $email\nSubject: $subject\nHeaders: " . print_r($headers, true) . "\n";
+    $log_entry .= "Message: $message\n";
+    if (!$mail_result) {
+        $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
+    }
+    $log_entry .= str_repeat('-', 60) . "\n";
+    file_put_contents($logfile, $log_entry, FILE_APPEND);
+    return $mail_result;
+}
+
 // Bestätigungsmail direkt nach Frontend-Formular (Pods) absenden
 // Bestätigungsmail auch über pods_api_post_save_pod_item_team absenden
 add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
@@ -32,57 +61,11 @@ add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
         $opts = get_option('meldetool_options', array());
         $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
         if ($enabled) {
-            $subject = !empty($opts['confirmation_subject']) ? $opts['confirmation_subject'] : 'Bestätigung: Team-Anmeldung erhalten';
-            $default_message = "Hallo\n\n" . sprintf("Ihr Team \"%s\" wurde erfolgreich für die Veranstaltung angemeldet.\n\n", $teamname) . "Falls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Meldetool-Team";
-            $message = !empty($opts['confirmation_message']) ? $opts['confirmation_message'] : $default_message;
-            $message = str_replace('{teamname}', $teamname, $message);
-            $headers = array('Content-Type: text/plain; charset=UTF-8');
-            if (!empty($opts['from_email']) && is_email($opts['from_email'])) {
-                $headers[] = 'From: ' . $opts['from_email'];
-            }
-            if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
-                $headers[] = 'Reply-To: ' . $opts['reply_to'];
-            }
-            $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
-            $headers[] = 'Cc: ' . $cc;
-            $mail_result = wp_mail($email, $subject, $message, $headers);
-            // Logging
-            /* $log_entry = date('Y-m-d H:i:s') . " | PODS_API_POST_SAVE_POD_ITEM_TEAM | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
-            $log_entry .= "To: $email\nSubject: $subject\nHeaders: " . print_r($headers, true) . "\n";
-            $log_entry .= "Message: $message\n";
-            if (!$mail_result) {
-                $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
-            }
-            $log_entry .= str_repeat('-', 60) . "\n";
-            file_put_contents($logfile, $log_entry, FILE_APPEND); */
+            $subject = !empty($opts['confirmation_subject']) ? $opts['confirmation_subject'] : '';
+            $message = !empty($opts['confirmation_message']) ? $opts['confirmation_message'] : '';
+            meldetool_send_team_mail($email, $teamname, $subject, $message);
         }
     }
-}, 10, 3);
-
-/**
- * Fahrername
- */
-add_action('save_post_fahrer', function($post_id, $post, $update) {
-
-    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
-        return;
-    }
-
-    $vorname = get_post_meta($post_id, 'vorname', true);
-    $nachname = get_post_meta($post_id, 'nachname', true);
-    // Beim Anlegen eines Fahrers über das Formular ist der vorname/nachname NULL/empty (vielleicht alle post_meta-Infos?). Erst beim "veröffentlichen" werden diese angelegt.
-    if ($vorname || $nachname) {
-        $new_title = trim($nachname . ' ' . $vorname);
-
-        if ($new_title && $new_title !== $post->post_title) {
-            wp_update_post([
-                'ID'         => $post_id,
-                'post_title' => $new_title,
-                'post_name'  => sanitize_title($new_title),
-            ]);
-        }
-    }
-
 }, 10, 3);
 
 /**
@@ -111,6 +94,49 @@ add_action('save_post_team', function($post_id, $post, $update) {
             ]);
         }
     }
+    // Mail nur beim erstmaligen Veröffentlichen (Statuswechsel von draft zu publish)
+    if ($post->post_status === 'publish' && $update) {
+        $old_post = get_post($post_id);
+        // Prüfe, ob vorheriger Status 'draft' war
+        if (isset($old_post->post_status) && $old_post->post_status === 'draft') {
+            $email = get_post_meta($post_id, 'email_manager', true);
+            if (!empty($email) && is_email($email)) {
+                $opts = get_option('meldetool_options', array());
+                $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
+                if ($enabled) {
+                    $subject = !empty($opts['confirmation_subject_publish']) ? $opts['confirmation_subject_publish'] : '';
+                    $message = !empty($opts['confirmation_message_publish']) ? $opts['confirmation_message_publish'] : '';
+                    meldetool_send_team_mail($email, $teamname, $subject, $message);
+                }
+            }
+        }
+    }
+}, 10, 3);
+
+/**
+ * Fahrername
+ */
+add_action('save_post_fahrer', function($post_id, $post, $update) {
+
+    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
+        return;
+    }
+
+    $vorname = get_post_meta($post_id, 'vorname', true);
+    $nachname = get_post_meta($post_id, 'nachname', true);
+    // Beim Anlegen eines Fahrers über das Formular ist der vorname/nachname NULL/empty (vielleicht alle post_meta-Infos?). Erst beim "veröffentlichen" werden diese angelegt.
+    if ($vorname || $nachname) {
+        $new_title = trim($nachname . ' ' . $vorname);
+
+        if ($new_title && $new_title !== $post->post_title) {
+            wp_update_post([
+                'ID'         => $post_id,
+                'post_title' => $new_title,
+                'post_name'  => sanitize_title($new_title),
+            ]);
+        }
+    }
+
 }, 10, 3);
 
 /**
