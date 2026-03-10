@@ -55,6 +55,19 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message) {
 // Bestätigungsmail direkt nach Frontend-Formular (Pods) absenden
 // Bestätigungsmail auch über pods_api_post_save_pod_item_team absenden
 add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
+    $current_status = get_post_status($id);
+    file_put_contents(
+        MELDETOOL_PLUGIN_DIR . 'mail_log.txt',
+        date('Y-m-d H:i:s') . " | pods_api_post_save_pod_item_team | post_id: $id | post_status: " . ($current_status ?: 'unknown') . "\n",
+        FILE_APPEND
+    );
+
+    // Beim Veröffentlichen wird dieser Hook ebenfalls aufgerufen.
+    // Die Veröffentlichungs-Mail kommt aus save_post_team, daher hier abbrechen.
+    if ($current_status === 'publish') {
+        return;
+    }
+
     $teamname = isset($data['teamname']) ? $data['teamname'] : get_post_meta($id, 'teamname', true);
     $email = isset($data['email_manager']) ? $data['email_manager'] : get_post_meta($id, 'email_manager', true);
     if (!empty($email) && is_email($email)) {
