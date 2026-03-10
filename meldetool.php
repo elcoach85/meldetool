@@ -25,6 +25,10 @@ add_action('init', function() {
 
 // Bestätigungsmail direkt nach Frontend-Formular (Pods) absenden
 add_action('pods_form_post_save_team', function($fields, $pod) {
+        $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+        $log_entry = date('Y-m-d H:i:s') . " | PODS_FORM_POST_SAVE_TEAM | fields_id: " . $fields['id'] . "\n";
+        $log_entry .= str_repeat('-', 60) . "\n";
+        file_put_contents($logfile, $log_entry, FILE_APPEND);
     $post_id = isset($fields['ID']) ? $fields['ID'] : (isset($fields['id']) ? $fields['id'] : null);
     if (!$post_id) return;
     $teamname = isset($fields['teamname']) ? $fields['teamname'] : get_post_meta($post_id, 'teamname', true);
@@ -113,46 +117,7 @@ add_action('save_post_team', function($post_id, $post, $update) {
             ]);
         }
     }
-        // Wenn ein neues Team (nicht Update) über Frontend erstellt wurde, Bestätigungs-E-Mail an Teammanager senden
-        if (!$update && !is_admin()) {
-            $email = get_post_meta($post_id, 'email_manager', true);
-            if (!empty($email) && is_email($email)) {
-                $opts = get_option('meldetool_options', array());
-
-                $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
-                if ($enabled) {
-                    $subject = !empty($opts['confirmation_subject']) ? $opts['confirmation_subject'] : 'Bestätigung: Team-Anmeldung erhalten';
-                    $default_message = "Hallo\n\n" . sprintf("Ihr Team \"%s\" wurde erfolgreich für die Veranstaltung angemeldet.\n\n", $new_title) . "Falls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Meldetool-Team";
-                    $message = !empty($opts['confirmation_message']) ? $opts['confirmation_message'] : $default_message;
-
-                    // Platzhalter ersetzen (z.B. {teamname})
-                    $message = str_replace('{teamname}', $new_title, $message);
-
-                    $headers = array('Content-Type: text/plain; charset=UTF-8');
-                    if (!empty($opts['from_email']) && is_email($opts['from_email'])) {
-                        $headers[] = 'From: ' . $opts['from_email'];
-                    }
-                    if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
-                        $headers[] = 'Reply-To: ' . $opts['reply_to'];
-                    }
-                    // CC-Adresse aus Einstellungen oder Default
-                    $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
-                    $headers[] = 'Cc: ' . $cc;
-
-                    $mail_result = wp_mail($email, $subject, $message, $headers);
-                    // Logging
-                    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
-                    $log_entry = date('Y-m-d H:i:s') . " | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
-                    $log_entry .= "To: $email\nSubject: $subject\nHeaders: " . print_r($headers, true) . "\n";
-                    $log_entry .= "Message: $message\n";
-                    if (!$mail_result) {
-                        $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
-                    }
-                    $log_entry .= str_repeat('-', 60) . "\n";
-                    file_put_contents($logfile, $log_entry, FILE_APPEND);
-                }
-            }
-        }
+            // ...existing code...
 
 }, 10, 3);
 
