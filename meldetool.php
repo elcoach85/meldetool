@@ -38,7 +38,7 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message) {
     }
     $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
     $headers[] = 'Cc: ' . $cc;
-    $mail_result = wp_mail($email, $subject, $message, $headers);
+//    $mail_result = wp_mail($email, $subject, $message, $headers);
     // Logging
     $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
     $log_entry = date('Y-m-d H:i:s') . " | TEAM_MAIL | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
@@ -55,19 +55,18 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message) {
 // Bestätigungsmail direkt nach Frontend-Formular (Pods) absenden
 // Bestätigungsmail auch über pods_api_post_save_pod_item_team absenden
 add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
-    $current_status = get_post_status($id);
-    file_put_contents(
-        MELDETOOL_PLUGIN_DIR . 'mail_log.txt',
-        date('Y-m-d H:i:s') . " | pods_api_post_save_pod_item_team | post_id: $id | post_status: " . ($current_status ?: 'unknown') . "\n",
-        FILE_APPEND
-    );
+    $mail_sent_meta_key = '_meldetool_confirmation_sent';
 
-    // Beim Veröffentlichen wird dieser Hook ebenfalls aufgerufen.
-    // Die Veröffentlichungs-Mail kommt aus save_post_team, daher hier abbrechen.
-    if ($current_status === 'publish') {
+    $testlog = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+    file_put_contents($testlog, date('Y-m-d H:i:s') . " | pods_api_post_save_pod_item_team | set teamname: " . get_post_meta($id, 'teamname', true) . " | data: " . print_r($data, true) . "\n", FILE_APPEND);
+
+    // Nur einmal senden: wenn bereits versendet, Hook sofort verlassen.
+    if (get_post_meta($id, $mail_sent_meta_key, true)) {
+        file_put_contents($testlog, date('Y-m-d H:i:s') . " | pods_api_post_save_pod_item_team | skip: confirmation already sent\n", FILE_APPEND);
         return;
     }
-
+	
+	// dieser Teil darf nur beim Anlegen ausgeführt werden 
     $teamname = isset($data['teamname']) ? $data['teamname'] : get_post_meta($id, 'teamname', true);
     $email = isset($data['email_manager']) ? $data['email_manager'] : get_post_meta($id, 'email_manager', true);
     if (!empty($email) && is_email($email)) {
@@ -77,6 +76,7 @@ add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
             $subject = !empty($opts['confirmation_subject']) ? $opts['confirmation_subject'] : '';
             $message = !empty($opts['confirmation_message']) ? $opts['confirmation_message'] : '';
             meldetool_send_team_mail($email, $teamname, $subject, $message);
+            update_post_meta($id, $mail_sent_meta_key, 1);
         }
     }
 }, 10, 3);
@@ -85,13 +85,13 @@ add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
  * Teamname
  */
 add_action('save_post_team', function($post_id, $post, $update) {
-    // Test-Log: Wird die Funktion überhaupt aufgerufen?
-    $testlog = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
-    file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team HOOK called | post_id: $post_id | update: $update | is_admin: " . (is_admin() ? '1' : '0') . " | wp_is_post_autosave: " . (wp_is_post_autosave($post_id) ? '1' : '0') . " | wp_is_post_revision: " . (wp_is_post_revision($post_id) ? '1' : '0') . "\n", FILE_APPEND);
-
     if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
         return;
     }
+	
+    // Test-Log: Wird die Funktion überhaupt aufgerufen?
+    $testlog = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+    file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team HOOK called | post_id: $post_id | update: $update | is_admin: " . (is_admin() ? '1' : '0') . " | wp_is_post_autosave: " . (wp_is_post_autosave($post_id) ? '1' : '0') . " | wp_is_post_revision: " . (wp_is_post_revision($post_id) ? '1' : '0') . " | post_status: ". $post->post_status . "\n", FILE_APPEND);
 
     $teamname = get_post_meta($post_id, 'teamname', true);
     
@@ -107,16 +107,27 @@ add_action('save_post_team', function($post_id, $post, $update) {
             ]);
         }
     }
-    // Mail nur beim erstmaligen Veröffentlichen (Statuswechsel von draft zu publish)
-    if ($post->post_status === 'publish' && $update) {
-        $old_post = get_post($post_id);
-        // Prüfe, ob vorheriger Status 'draft' war
-        if (isset($old_post->post_status) && $old_post->post_status === 'draft') {
-            $email = get_post_meta($post_id, 'email_manager', true);
-            if (!empty($email) && is_email($email)) {
-                $opts = get_option('meldetool_options', array());
-                $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
-                if ($enabled) {
+	
+	// Dieser Teil soll bei jedem Update eines Teams ausgeführt werden.
+	//TODO: Mail mit Teamdetails befüllen
+	$email = get_post_meta($post_id, 'email_manager', true);
+	file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team | email: $email | teamname: " . get_post_meta($id, 'teamname', true) . "\n", FILE_APPEND);
+	if (!empty($email) && is_email($email)) {
+		$opts = get_option('meldetool_options', array());
+		$enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
+		if ($enabled) {
+			// erste Mail beim Anlegen des Teams durch Teammanager
+			if (empty($update)) {
+				$subject = !empty($opts['confirmation_subject']) ? $opts['confirmation_subject'] : '';
+				$message = !empty($opts['confirmation_message']) ? $opts['confirmation_message'] : '';
+				meldetool_send_team_mail($email, $teamname, $subject, $message); 
+			}
+			// Zweite Mail beim erstmaligen Veröffentlichen (Statuswechsel von draft zu publish)
+			else if ($post->post_status === 'publish' && $update) {
+				$old_post = get_post($post_id);
+				// Prüfe, ob vorheriger Status 'draft' war
+				file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team | old_post: $old_post->post_status | post_status: $post->post_status " . "\n", FILE_APPEND);
+				if (isset($old_post->post_status) && $old_post->post_status === 'draft') {
                     $subject = !empty($opts['confirmation_subject_publish']) ? $opts['confirmation_subject_publish'] : '';
                     $message = !empty($opts['confirmation_message_publish']) ? $opts['confirmation_message_publish'] : '';
                     meldetool_send_team_mail($email, $teamname, $subject, $message);
