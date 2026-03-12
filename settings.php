@@ -54,7 +54,7 @@ add_action('admin_init', function() {
         printf('<input type="text" name="meldetool_options[confirmation_subject]" value="%s" class="regular-text" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
-    add_settings_field('confirmation_message', 'E-Mail Nachricht (Platzhalter: {teamname})', function() {
+    add_settings_field('confirmation_message', 'E-Mail Nachricht (Platzhalter: {teamname}, {teamdetails})', function() {
         $opts = get_option('meldetool_options', array());
         $defaults = meldetool_default_mail_texts();
         $val = isset($opts['confirmation_message']) && $opts['confirmation_message'] !== ''
@@ -72,7 +72,7 @@ add_action('admin_init', function() {
         printf('<input type="text" name="meldetool_options[confirmation_subject_publish]" value="%s" class="regular-text" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
-    add_settings_field('confirmation_message_publish', 'E-Mail Nachricht (Veröffentlichung, Platzhalter: {teamname})', function() {
+    add_settings_field('confirmation_message_publish', 'E-Mail Nachricht (Veröffentlichung, Platzhalter: {teamname}, {teamdetails})', function() {
         $opts = get_option('meldetool_options', array());
         $defaults = meldetool_default_mail_texts();
         $val = isset($opts['confirmation_message_publish']) && $opts['confirmation_message_publish'] !== ''
