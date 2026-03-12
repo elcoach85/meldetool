@@ -36,12 +36,24 @@ function meldetool_get_team_details_text($team_id, $teamname = '') {
     if (!empty($team_id)) {
         $teammanager = get_post_meta($team_id, 'teammanager', true);
         $email_manager = get_post_meta($team_id, 'email_manager', true);
+        $kontoinhaber = get_post_meta($team_id, 'kontoinhaber', true);
+        $iban = get_post_meta($team_id, 'iban', true);
+        $bic = get_post_meta($team_id, 'bic', true);
 
         if (!empty($teammanager)) {
             $details[] = 'Teammanager: ' . $teammanager;
         }
         if (!empty($email_manager)) {
             $details[] = 'E-Mail Teammanager: ' . $email_manager;
+        }
+        if (!empty($kontoinhaber)) {
+            $details[] = 'Kontoinhaber: ' . $kontoinhaber;
+        }
+        if (!empty($iban)) {
+            $details[] = 'IBAN: ' . $iban;
+        }
+        if (!empty($bic)) {
+            $details[] = 'BIC: ' . $bic;
         }
 
         $terms = get_the_terms($team_id, 'rennklasse');
