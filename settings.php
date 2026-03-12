@@ -3,9 +3,9 @@
 
 function meldetool_default_mail_texts() {
     return array(
-        'confirmation_subject' => 'Bestätigung: Team-Anmeldung erhalten',
+        'confirmation_subject' => '[Race Days] Teammeldung erhalten',
         'confirmation_message' => "Hallo\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden. Sobald das Team offiziell angemeldet ist, werden Sie von uns benachrichtigt.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
-        'confirmation_subject_publish' => 'Ihr Team wurde in der Datenbank angelegt',
+        'confirmation_subject_publish' => '[Race Days] Team gemeldet',
         'confirmation_message_publish' => "Hallo\n\nIhr Team '{teamname}' ist nun offiziell für die Race Days Stuttgart angemeldet.\n\nSie können nun Fahrer hinzufügen oder Änderungen vornehmen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
     );
 }
