@@ -112,27 +112,14 @@ add_action('save_post_team', function($post_id, $post, $update) {
 	//TODO: Mail mit Teamdetails befüllen
 	$email = get_post_meta($post_id, 'email_manager', true);
 	file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team | email: $email | teamname: " . get_post_meta($id, 'teamname', true) . "\n", FILE_APPEND);
-	if (!empty($email) && is_email($email)) {
-		$opts = get_option('meldetool_options', array());
-		$enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
-		if ($enabled) {
-			// erste Mail beim Anlegen des Teams durch Teammanager
-			if (empty($update)) {
-				$subject = !empty($opts['confirmation_subject']) ? $opts['confirmation_subject'] : '';
-				$message = !empty($opts['confirmation_message']) ? $opts['confirmation_message'] : '';
-				meldetool_send_team_mail($email, $teamname, $subject, $message); 
-			}
-			// Zweite Mail beim erstmaligen Veröffentlichen (Statuswechsel von draft zu publish)
-			else if ($post->post_status === 'publish' && $update) {
-				$old_post = get_post($post_id);
-				// Prüfe, ob vorheriger Status 'draft' war
-				file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team | old_post: $old_post->post_status | post_status: $post->post_status " . "\n", FILE_APPEND);
-				if (isset($old_post->post_status) && $old_post->post_status === 'draft') {
-                    $subject = !empty($opts['confirmation_subject_publish']) ? $opts['confirmation_subject_publish'] : '';
-                    $message = !empty($opts['confirmation_message_publish']) ? $opts['confirmation_message_publish'] : '';
-                    meldetool_send_team_mail($email, $teamname, $subject, $message);
-                }
-            }
+    $email = get_post_meta($post_id, 'email_manager', true);
+    if (!empty($email) && is_email($email)) {
+        $opts = get_option('meldetool_options', array());
+        $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
+        if ($enabled) {
+            $subject = !empty($opts['confirmation_subject_publish']) ? $opts['confirmation_subject_publish'] : '';
+            $message = !empty($opts['confirmation_message_publish']) ? $opts['confirmation_message_publish'] : '';
+            meldetool_send_team_mail($email, $teamname, $subject, $message);
         }
     }
 }, 10, 3);
