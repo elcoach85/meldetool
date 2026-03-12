@@ -7,6 +7,10 @@ function meldetool_default_mail_texts() {
         'confirmation_message' => "Hallo\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden. Sobald das Team offiziell angemeldet ist, werden Sie von uns benachrichtigt.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
         'confirmation_subject_publish' => '[Race Days] Team gemeldet',
         'confirmation_message_publish' => "Hallo\n\nIhr Team '{teamname}' ist nun offiziell für die Race Days Stuttgart angemeldet.\n\nSie können nun Fahrer hinzufügen oder Änderungen vornehmen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
+        'rider_confirmation_subject' => '[Race Days] Bitte E-Mail-Adresse bestaetigen',
+        'rider_confirmation_message' => "Hallo {ridername},\n\nvielen Dank fuer Ihre Anmeldung im Team '{teamname}'.\n\nBitte bestaetigen Sie Ihre E-Mail-Adresse ueber folgenden Link:\n{confirm_url}\n\nMit freundlichen Gruessen\nIhr Racedays-Team",
+        'rider_details_subject' => '[Race Days] Fahrerdetails bestaetigt',
+        'rider_details_message' => "Hallo,\n\ndie E-Mail-Adresse fuer Fahrer*in {ridername} (Team: {teamname}) wurde bestaetigt.\n\nFahrerdetails:\n{riderdetails}\n\nMit freundlichen Gruessen\nIhr Racedays-Team",
     );
 }
 
@@ -80,6 +84,42 @@ add_action('admin_init', function() {
             : esc_textarea($defaults['confirmation_message_publish']);
         printf('<textarea name="meldetool_options[confirmation_message_publish]" rows="8" class="large-text">%s</textarea>', $val);
     }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('rider_confirmation_subject', 'E-Mail Betreff (Fahrer-Bestaetigung)', function() {
+        $opts = get_option('meldetool_options', array());
+        $defaults = meldetool_default_mail_texts();
+        $val = isset($opts['rider_confirmation_subject']) && $opts['rider_confirmation_subject'] !== ''
+            ? esc_attr($opts['rider_confirmation_subject'])
+            : esc_attr($defaults['rider_confirmation_subject']);
+        printf('<input type="text" name="meldetool_options[rider_confirmation_subject]" value="%s" class="regular-text" />', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('rider_confirmation_message', 'E-Mail Nachricht (Fahrer-Bestaetigung, Platzhalter: {ridername}, {teamname}, {confirm_url})', function() {
+        $opts = get_option('meldetool_options', array());
+        $defaults = meldetool_default_mail_texts();
+        $val = isset($opts['rider_confirmation_message']) && $opts['rider_confirmation_message'] !== ''
+            ? esc_textarea($opts['rider_confirmation_message'])
+            : esc_textarea($defaults['rider_confirmation_message']);
+        printf('<textarea name="meldetool_options[rider_confirmation_message]" rows="8" class="large-text">%s</textarea>', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('rider_details_subject', 'E-Mail Betreff (Fahrerdetails nach Bestaetigung)', function() {
+        $opts = get_option('meldetool_options', array());
+        $defaults = meldetool_default_mail_texts();
+        $val = isset($opts['rider_details_subject']) && $opts['rider_details_subject'] !== ''
+            ? esc_attr($opts['rider_details_subject'])
+            : esc_attr($defaults['rider_details_subject']);
+        printf('<input type="text" name="meldetool_options[rider_details_subject]" value="%s" class="regular-text" />', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('rider_details_message', 'E-Mail Nachricht (Fahrerdetails, Platzhalter: {ridername}, {teamname}, {riderdetails})', function() {
+        $opts = get_option('meldetool_options', array());
+        $defaults = meldetool_default_mail_texts();
+        $val = isset($opts['rider_details_message']) && $opts['rider_details_message'] !== ''
+            ? esc_textarea($opts['rider_details_message'])
+            : esc_textarea($defaults['rider_details_message']);
+        printf('<textarea name="meldetool_options[rider_details_message]" rows="8" class="large-text">%s</textarea>', $val);
+    }, 'meldetool_settings', 'meldetool_main');
 });
 
 function meldetool_sanitize_options($input) {
@@ -102,6 +142,18 @@ function meldetool_sanitize_options($input) {
     $out['confirmation_message_publish'] = isset($input['confirmation_message_publish']) && $input['confirmation_message_publish'] !== ''
         ? wp_kses_post($input['confirmation_message_publish'])
         : $defaults['confirmation_message_publish'];
+    $out['rider_confirmation_subject'] = isset($input['rider_confirmation_subject']) && $input['rider_confirmation_subject'] !== ''
+        ? sanitize_text_field($input['rider_confirmation_subject'])
+        : $defaults['rider_confirmation_subject'];
+    $out['rider_confirmation_message'] = isset($input['rider_confirmation_message']) && $input['rider_confirmation_message'] !== ''
+        ? wp_kses_post($input['rider_confirmation_message'])
+        : $defaults['rider_confirmation_message'];
+    $out['rider_details_subject'] = isset($input['rider_details_subject']) && $input['rider_details_subject'] !== ''
+        ? sanitize_text_field($input['rider_details_subject'])
+        : $defaults['rider_details_subject'];
+    $out['rider_details_message'] = isset($input['rider_details_message']) && $input['rider_details_message'] !== ''
+        ? wp_kses_post($input['rider_details_message'])
+        : $defaults['rider_details_message'];
 
     return $out;
 }

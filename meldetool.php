@@ -101,6 +101,227 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
     return $mail_result;
 }
 
+function meldetool_get_rider_details_text($rider_id) {
+    $details = array();
+    $rider_id = (int) $rider_id;
+
+    if (!$rider_id) {
+        return '';
+    }
+
+    $vorname = get_post_meta($rider_id, 'vorname', true);
+    $nachname = get_post_meta($rider_id, 'nachname', true);
+    $email_rider = get_post_meta($rider_id, 'email_rider', true);
+    $lizenznummer = get_post_meta($rider_id, 'lizenznummer', true);
+    $uci_id = get_post_meta($rider_id, 'uci_id', true);
+    $nationalitaet = get_post_meta($rider_id, 'nationalitaet', true);
+    $ist_kapitaen = get_post_meta($rider_id, 'ist_kapitaen', true);
+    $team_id = (int) get_post_meta($rider_id, 'team', true);
+
+    $rider_name = trim($vorname . ' ' . $nachname);
+    if (!empty($rider_name)) {
+        $details[] = 'Name: ' . $rider_name;
+    }
+    if (!empty($email_rider)) {
+        $details[] = 'E-Mail: ' . $email_rider;
+    }
+    if (!empty($lizenznummer)) {
+        $details[] = 'Lizenznummer: ' . $lizenznummer;
+    }
+    if (!empty($uci_id)) {
+        $details[] = 'UCI-ID: ' . $uci_id;
+    }
+    if (!empty($nationalitaet)) {
+        $details[] = 'Nationalitaet: ' . $nationalitaet;
+    }
+    if (!empty($ist_kapitaen)) {
+        $details[] = 'Kapitaen: Ja';
+    }
+
+    if ($team_id) {
+        $details[] = 'Team: ' . get_the_title($team_id);
+
+        $terms = get_the_terms($team_id, 'rennklasse');
+        if (!empty($terms) && !is_wp_error($terms)) {
+            $details[] = 'Rennklasse: ' . implode(', ', wp_list_pluck($terms, 'name'));
+        }
+    }
+
+    $kategorie_terms = get_the_terms($rider_id, 'kategorie');
+    if (!empty($kategorie_terms) && !is_wp_error($kategorie_terms)) {
+        $details[] = 'Kategorie: ' . implode(', ', wp_list_pluck($kategorie_terms, 'name'));
+    }
+
+    return implode("\n", $details);
+}
+
+function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_name, $teamname, $confirm_url) {
+    $opts = get_option('meldetool_options', array());
+    $defaults = function_exists('meldetool_default_mail_texts') ? meldetool_default_mail_texts() : array();
+
+    $subject = !empty($opts['rider_confirmation_subject'])
+        ? $opts['rider_confirmation_subject']
+        : (isset($defaults['rider_confirmation_subject']) ? $defaults['rider_confirmation_subject'] : '[Race Days] Bitte E-Mail bestaetigen');
+
+    $message = !empty($opts['rider_confirmation_message'])
+        ? $opts['rider_confirmation_message']
+        : (isset($defaults['rider_confirmation_message']) ? $defaults['rider_confirmation_message'] : "Hallo {ridername},\n\nbitte bestaetigen Sie Ihre E-Mail-Adresse ueber folgenden Link:\n{confirm_url}\n");
+
+    $message = str_replace(
+        array('{ridername}', '{teamname}', '{confirm_url}'),
+        array($rider_name, $teamname, $confirm_url),
+        $message
+    );
+
+    $headers = array('Content-Type: text/plain; charset=UTF-8');
+    if (!empty($opts['from_email']) && is_email($opts['from_email'])) {
+        $headers[] = 'From: ' . $opts['from_email'];
+    }
+    if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
+        $headers[] = 'Reply-To: ' . $opts['reply_to'];
+    }
+
+    $mail_result = wp_mail($rider_email, $subject, $message, $headers);
+
+    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+    $log_entry = date('Y-m-d H:i:s') . " | RIDER_CONFIRMATION_MAIL | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
+    $log_entry .= "Rider-ID: $rider_id\nTo: $rider_email\nSubject: $subject\n";
+    if (!$mail_result) {
+        $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
+    }
+    $log_entry .= str_repeat('-', 60) . "\n";
+    file_put_contents($logfile, $log_entry, FILE_APPEND);
+
+    return $mail_result;
+}
+
+function meldetool_send_rider_details_mail($rider_id) {
+    $rider_id = (int) $rider_id;
+    if (!$rider_id) {
+        return;
+    }
+
+    $details_sent_meta = '_meldetool_rider_details_sent';
+    if (get_post_meta($rider_id, $details_sent_meta, true)) {
+        return;
+    }
+
+    $opts = get_option('meldetool_options', array());
+    $defaults = function_exists('meldetool_default_mail_texts') ? meldetool_default_mail_texts() : array();
+
+    $vorname = get_post_meta($rider_id, 'vorname', true);
+    $nachname = get_post_meta($rider_id, 'nachname', true);
+    $rider_name = trim($vorname . ' ' . $nachname);
+    $rider_email = get_post_meta($rider_id, 'email_rider', true);
+    $team_id = (int) get_post_meta($rider_id, 'team', true);
+    $teamname = $team_id ? get_the_title($team_id) : '';
+    $manager_email = $team_id ? get_post_meta($team_id, 'email_manager', true) : '';
+    $rider_details = meldetool_get_rider_details_text($rider_id);
+
+    $subject = !empty($opts['rider_details_subject'])
+        ? $opts['rider_details_subject']
+        : (isset($defaults['rider_details_subject']) ? $defaults['rider_details_subject'] : '[Race Days] Fahrerdetails bestaetigt');
+
+    $message = !empty($opts['rider_details_message'])
+        ? $opts['rider_details_message']
+        : (isset($defaults['rider_details_message']) ? $defaults['rider_details_message'] : "Hallo,\n\ndie E-Mail-Adresse fuer Fahrer {ridername} wurde bestaetigt.\n\n{riderdetails}\n");
+
+    $message = str_replace(
+        array('{ridername}', '{teamname}', '{riderdetails}'),
+        array($rider_name, $teamname, $rider_details),
+        $message
+    );
+
+    $targets = array();
+    if (!empty($rider_email) && is_email($rider_email)) {
+        $targets[] = $rider_email;
+    }
+    if (!empty($manager_email) && is_email($manager_email) && $manager_email !== $rider_email) {
+        $targets[] = $manager_email;
+    }
+
+    foreach ($targets as $target_email) {
+        meldetool_send_team_mail($target_email, $teamname, $subject, $message, $team_id);
+    }
+
+    if (!empty($targets)) {
+        update_post_meta($rider_id, $details_sent_meta, 1);
+    }
+}
+
+// Fahrer Double-Opt-In: Erst bestaetigen, dann Details versenden
+add_action('pods_api_post_save_pod_item_fahrer', function($data, $pod, $id) {
+    $id = (int) $id;
+    if (!$id) {
+        return;
+    }
+
+    $confirmation_sent_meta = '_meldetool_rider_confirmation_sent';
+    $confirmed_meta = '_meldetool_rider_email_confirmed';
+    if (get_post_meta($id, $confirmation_sent_meta, true) || get_post_meta($id, $confirmed_meta, true)) {
+        return;
+    }
+
+    $rider_email = isset($data['email_rider']) ? $data['email_rider'] : get_post_meta($id, 'email_rider', true);
+    if (empty($rider_email) || !is_email($rider_email)) {
+        return;
+    }
+
+    $opts = get_option('meldetool_options', array());
+    $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
+    if (!$enabled) {
+        return;
+    }
+
+    $vorname = isset($data['vorname']) ? $data['vorname'] : get_post_meta($id, 'vorname', true);
+    $nachname = isset($data['nachname']) ? $data['nachname'] : get_post_meta($id, 'nachname', true);
+    $rider_name = trim($vorname . ' ' . $nachname);
+    $team_id = isset($data['team']) ? (int) $data['team'] : (int) get_post_meta($id, 'team', true);
+    $teamname = $team_id ? get_the_title($team_id) : '';
+
+    $token = wp_generate_password(32, false, false);
+    update_post_meta($id, '_meldetool_rider_confirmation_token', $token);
+
+    $confirm_url = add_query_arg(
+        array(
+            'meldetool_confirm_rider' => 1,
+            'rider_id' => $id,
+            'token' => rawurlencode($token),
+        ),
+        home_url('/')
+    );
+
+    $mail_result = meldetool_send_rider_confirmation_mail($id, $rider_email, $rider_name, $teamname, $confirm_url);
+    if ($mail_result) {
+        update_post_meta($id, $confirmation_sent_meta, 1);
+    }
+}, 10, 3);
+
+add_action('template_redirect', function() {
+    if (!isset($_GET['meldetool_confirm_rider'])) {
+        return;
+    }
+
+    $rider_id = isset($_GET['rider_id']) ? (int) $_GET['rider_id'] : 0;
+    $token = isset($_GET['token']) ? sanitize_text_field(wp_unslash($_GET['token'])) : '';
+    if (!$rider_id || empty($token)) {
+        wp_die('Ungueltiger Bestaetigungslink.', 'Meldetool', array('response' => 400));
+    }
+
+    $stored_token = get_post_meta($rider_id, '_meldetool_rider_confirmation_token', true);
+    if (empty($stored_token) || !hash_equals((string) $stored_token, (string) $token)) {
+        wp_die('Bestaetigungslink ist ungueltig oder abgelaufen.', 'Meldetool', array('response' => 400));
+    }
+
+    if (!get_post_meta($rider_id, '_meldetool_rider_email_confirmed', true)) {
+        update_post_meta($rider_id, '_meldetool_rider_email_confirmed', 1);
+        delete_post_meta($rider_id, '_meldetool_rider_confirmation_token');
+        meldetool_send_rider_details_mail($rider_id);
+    }
+
+    wp_die('Vielen Dank. Ihre E-Mail-Adresse wurde erfolgreich bestaetigt.', 'Meldetool', array('response' => 200));
+});
+
 // Bestätigungsmail direkt nach Frontend-Formular (Pods) absenden
 // Bestätigungsmail auch über pods_api_post_save_pod_item_team absenden
 add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
@@ -150,8 +371,8 @@ add_action('save_post_team', function($post_id, $post, $update) {
 
         if ($new_title && $new_title !== $post->post_title) {
             wp_update_post([
-                'ID'         => $post_id,
-                'post_title' => $new_title,
+                //'ID'         => $post_id,
+                //'post_title' => $new_title,
                 'post_name'  => sanitize_title($new_title),
             ]);
         }
