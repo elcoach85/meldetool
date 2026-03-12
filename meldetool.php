@@ -355,6 +355,12 @@ add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
  * Teamname
  */
 add_action('save_post_team', function($post_id, $post, $update) {
+    static $is_updating_team_post = false;
+
+    if ($is_updating_team_post) {
+        return;
+    }
+
     if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
         return;
     }
@@ -370,19 +376,20 @@ add_action('save_post_team', function($post_id, $post, $update) {
         $new_title = trim($teamname);
 
         if ($new_title && $new_title !== $post->post_title) {
+            $is_updating_team_post = true;
             wp_update_post([
-                //'ID'         => $post_id,
-                //'post_title' => $new_title,
+                'ID'         => $post_id,
+                'post_title' => $new_title,
                 'post_name'  => sanitize_title($new_title),
             ]);
+            $is_updating_team_post = false;
         }
     }
 	
 	// Dieser Teil soll bei jedem Update eines Teams ausgeführt werden.
 	//TODO: Mail mit Teamdetails befüllen
 	$email = get_post_meta($post_id, 'email_manager', true);
-	file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team | email: $email | teamname: " . get_post_meta($id, 'teamname', true) . "\n", FILE_APPEND);
-    $email = get_post_meta($post_id, 'email_manager', true);
+    file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team | email: $email | teamname: " . get_post_meta($post_id, 'teamname', true) . "\n", FILE_APPEND);
     if (!empty($email) && is_email($email)) {
         $opts = get_option('meldetool_options', array());
         $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
