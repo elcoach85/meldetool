@@ -189,7 +189,7 @@ register_activation_hook($meldetool_main_file, function() {
             'from_email' => '',
             'reply_to' => '',
             'confirmation_subject' => 'Bestätigung: Team-Anmeldung erhalten',
-            'confirmation_message' => "Hallo\n\nIhr Team '{teamname}' wurde erfolgreich für die Race Days Stuttgart angemeldet.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Race-Days-Team"
+            'confirmation_message' => "Hallo {teammanager},\n\nIhr Team '{teamname}' wurde erfolgreich für die Race Days Stuttgart angemeldet.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Race-Days-Team"
         );
         add_option('meldetool_options', $defaults);
     }

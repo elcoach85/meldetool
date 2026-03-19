@@ -4,13 +4,13 @@
 function meldetool_default_mail_texts() {
     return array(
         'confirmation_subject' => '[Race Days] Teammeldung erhalten',
-        'confirmation_message' => "Hallo\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden. Sobald das Team offiziell angemeldet ist, werden Sie von uns benachrichtigt.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
+        'confirmation_message' => "Hallo {teammanager},\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden. Sobald das Team offiziell angemeldet ist, werden Sie von uns benachrichtigt.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
         'confirmation_subject_publish' => '[Race Days] Team gemeldet',
-        'confirmation_message_publish' => "Hallo\n\nIhr Team '{teamname}' ist nun offiziell für die Race Days Stuttgart angemeldet.\n\nSie können nun Fahrer hinzufügen oder Änderungen vornehmen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
-        'rider_confirmation_subject' => '[Race Days] Bitte E-Mail-Adresse bestaetigen',
-        'rider_confirmation_message' => "Hallo {ridername},\n\nvielen Dank fuer Ihre Anmeldung im Team '{teamname}'.\n\nBitte bestaetigen Sie Ihre E-Mail-Adresse ueber folgenden Link:\n{confirm_url}\n\nMit freundlichen Gruessen\nIhr Racedays-Team",
-        'rider_details_subject' => '[Race Days] Fahrerdetails bestaetigt',
-        'rider_details_message' => "Hallo,\n\ndie E-Mail-Adresse fuer Fahrer*in {ridername} (Team: {teamname}) wurde bestaetigt.\n\nFahrerdetails:\n{riderdetails}\n\nMit freundlichen Gruessen\nIhr Racedays-Team",
+        'confirmation_message_publish' => "Hallo {teammanager},\n\nIhr Team '{teamname}' ist nun offiziell für die Race Days Stuttgart angemeldet.\n\nSie können nun Fahrer hinzufügen oder Änderungen vornehmen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
+        'rider_confirmation_subject' => '[Race Days] Bitte E-Mail-Adresse bestätigen',
+        'rider_confirmation_message' => "Hallo {ridername},\n\nvielen Dank fuer deine Anmeldung im Team '{teamname}'.\n\nBitte bestätige deine E-Mail-Adresse über folgenden Link:\n{confirm_url}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
+        'rider_details_subject' => '[Race Days] Fahrerdetails bestätigt',
+        'rider_details_message' => "Hallo,\n\ndie E-Mail-Adresse für Fahrer*in {ridername} (Team: {teamname}) wurde bestätigt.\n\nFahrerdetails:\n{riderdetails}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
     );
 }
 
@@ -58,7 +58,7 @@ add_action('admin_init', function() {
         printf('<input type="text" name="meldetool_options[confirmation_subject]" value="%s" class="regular-text" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
-    add_settings_field('confirmation_message', 'E-Mail Nachricht (Platzhalter: {teamname}, {teamdetails})', function() {
+    add_settings_field('confirmation_message', 'E-Mail Nachricht (Platzhalter: {teammanager}, {teamname}, {teamdetails})', function() {
         $opts = get_option('meldetool_options', array());
         $defaults = meldetool_default_mail_texts();
         $val = isset($opts['confirmation_message']) && $opts['confirmation_message'] !== ''
@@ -76,7 +76,7 @@ add_action('admin_init', function() {
         printf('<input type="text" name="meldetool_options[confirmation_subject_publish]" value="%s" class="regular-text" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
-    add_settings_field('confirmation_message_publish', 'E-Mail Nachricht (Veröffentlichung, Platzhalter: {teamname}, {teamdetails})', function() {
+    add_settings_field('confirmation_message_publish', 'E-Mail Nachricht (Veröffentlichung, Platzhalter: {teammanager}, {teamname}, {teamdetails})', function() {
         $opts = get_option('meldetool_options', array());
         $defaults = meldetool_default_mail_texts();
         $val = isset($opts['confirmation_message_publish']) && $opts['confirmation_message_publish'] !== ''

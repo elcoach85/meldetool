@@ -71,13 +71,22 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
     $from_email = (!empty($opts['from_email']) && is_email($opts['from_email']))
         ? $opts['from_email']
         : get_option('admin_email');
+    $teammanager = !empty($team_id) ? get_post_meta((int) $team_id, 'teammanager', true) : '';
     $team_details = meldetool_get_team_details_text((int) $team_id, $teamname);
     $has_teamdetails_placeholder = (strpos($message, '{teamdetails}') !== false);
+    $has_teammanager_placeholder = (strpos($message, '{teammanager}') !== false);
     $message = str_replace(
-        array('{teamname}', '{teamdetails}'),
-        array($teamname, $team_details),
+        array('{teamname}', '{teamdetails}', '{teammanager}'),
+        array($teamname, $team_details, $teammanager),
         $message
     );
+    // Ensure the team manager confirmation is personalized even with old templates.
+    if (!$has_teammanager_placeholder && !empty($teammanager) && !empty($email) && !empty($team_id)) {
+        $manager_email = get_post_meta((int) $team_id, 'email_manager', true);
+        if (!empty($manager_email) && strcasecmp((string) $manager_email, (string) $email) === 0) {
+            $message = "Hallo " . $teammanager . ",\n\n" . ltrim((string) $message);
+        }
+    }
     if (!$has_teamdetails_placeholder && !empty($team_details)) {
         $message .= "\n\nTeamdetails:\n" . $team_details;
     }
