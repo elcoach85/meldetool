@@ -34,7 +34,7 @@ function meldetool_get_license_optional_team_ids() {
 
     foreach ($teams as $team_id) {
         $title = (string) get_the_title((int) $team_id);
-        if (stripos($title, 'Hobby') === 0) {
+        if (stripos($title, 'Hobby') !== false) {
             $team_ids[] = (int) $team_id;
         }
     }
@@ -48,16 +48,19 @@ add_action('wp_footer', function() {
     }
 
     $optional_team_ids = meldetool_get_license_optional_team_ids();
-    if (empty($optional_team_ids)) {
-        return;
+    // Debug: zeigt im HTML-Source welche Teams PHP gefunden hat
+    // und gibt alle Team-Titel aus, damit der Präfix-Vergleich geprüft werden kann
+    $all_teams_debug = array();
+    $all_posts = get_posts(array('post_type' => 'team', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids'));
+    foreach ($all_posts as $tid) {
+        $all_teams_debug[(int)$tid] = get_the_title((int)$tid);
     }
     ?>
+    <!-- meldetool debug: optional_team_ids=<?php echo esc_html(wp_json_encode($optional_team_ids)); ?> all_teams=<?php echo esc_html(wp_json_encode($all_teams_debug)); ?> -->
     <script>
     (function() {
         var optionalTeamIds = <?php echo wp_json_encode(array_values($optional_team_ids)); ?>;
-        if (!Array.isArray(optionalTeamIds) || optionalTeamIds.length === 0) {
-            return;
-        }
+        console.log('[meldetool] optional team IDs:', optionalTeamIds);
 
         function asInt(value) {
             var parsed = parseInt(value, 10);
