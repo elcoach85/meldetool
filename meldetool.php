@@ -65,7 +65,7 @@ function meldetool_get_team_details_text($team_id, $teamname = '') {
     return implode("\n", $details);
 }
 
-function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_id = 0) {
+function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_id = 0, $send_copy_to_orga = false) {
     $opts = get_option('meldetool_options', array());
     $from_name = 'Race Days Orga-Team';
     $from_email = (!empty($opts['from_email']) && is_email($opts['from_email']))
@@ -98,8 +98,12 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
     if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
         $headers[] = 'Reply-To: ' . $opts['reply_to'];
     }
-    $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
-    $headers[] = 'Cc: ' . $cc;
+    if ($send_copy_to_orga) {
+        $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
+        if (!empty($cc) && is_email($cc)) {
+            $headers[] = 'Cc: ' . $cc;
+        }
+    }
     $mail_result = wp_mail($email, $subject, $message, $headers);
     // Logging
     $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
@@ -362,7 +366,7 @@ add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
         if ($enabled) {
             $subject = !empty($opts['confirmation_subject']) ? $opts['confirmation_subject'] : '';
             $message = !empty($opts['confirmation_message']) ? $opts['confirmation_message'] : '';
-            meldetool_send_team_mail($email, $teamname, $subject, $message, $id);
+            meldetool_send_team_mail($email, $teamname, $subject, $message, $id, true);
             update_post_meta($id, $mail_sent_meta_key, 1);
         }
     }

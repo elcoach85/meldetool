@@ -6,9 +6,9 @@ function meldetool_default_mail_texts() {
         'confirmation_subject' => '[Race Days] Teammeldung erhalten',
         'confirmation_message' => "Hallo {teammanager},\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden. Sobald das Team offiziell angemeldet ist, werden Sie von uns benachrichtigt.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
         'confirmation_subject_publish' => '[Race Days] Team gemeldet',
-        'confirmation_message_publish' => "Hallo {teammanager},\n\nIhr Team '{teamname}' ist nun offiziell für die Race Days Stuttgart angemeldet.\n\nSie können nun Fahrer hinzufügen oder Änderungen vornehmen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
+        'confirmation_message_publish' => "Hallo {teammanager},\n\nIhr Team '{teamname}' ist nun offiziell für die Race Days Stuttgart angemeldet.\n\nSie können nun Fahrer hinzufügen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
         'rider_confirmation_subject' => '[Race Days] Bitte E-Mail-Adresse bestätigen',
-        'rider_confirmation_message' => "Hallo {ridername},\n\nvielen Dank fuer deine Anmeldung im Team '{teamname}'.\n\nBitte bestätige deine E-Mail-Adresse über folgenden Link:\n{confirm_url}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
+        'rider_confirmation_message' => "Hallo {ridername},\n\nvielen Dank für deine Anmeldung im Team '{teamname}'.\n\nBitte bestätige deine E-Mail-Adresse über folgenden Link:\n{confirm_url}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
         'rider_details_subject' => '[Race Days] Fahrerdetails bestätigt',
         'rider_details_message' => "Hallo,\n\ndie E-Mail-Adresse für Fahrer*in {ridername} (Team: {teamname}) wurde bestätigt.\n\nFahrerdetails:\n{riderdetails}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
     );
@@ -43,10 +43,10 @@ add_action('admin_init', function() {
         printf('<input type="email" name="meldetool_options[reply_to]" value="%s" class="regular-text" placeholder="orga@the-race-days-stuttgart.de" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
-    add_settings_field('cc_email', 'CC-E-Mail (Kopie der Bestätigung)', function() {
+    add_settings_field('cc_email', 'CC-E-Mail (optional, Kopie der Bestätigung)', function() {
         $opts = get_option('meldetool_options', array());
         $val = isset($opts['cc_email']) ? esc_attr($opts['cc_email']) : '';
-        printf('<input type="email" name="meldetool_options[cc_email]" value="%s" class="regular-text" placeholder="orga@the-race-days-stuttgart.de" />', $val);
+        printf('<input type="email" name="meldetool_options[cc_email]" value="%s" class="regular-text" placeholder="leer lassen = keine CC" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
     add_settings_field('confirmation_subject', 'E-Mail Betreff', function() {
