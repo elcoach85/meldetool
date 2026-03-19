@@ -64,27 +64,28 @@ add_action('wp_footer', function() {
             return isNaN(parsed) ? 0 : parsed;
         }
 
-        // Pods renders row wrappers as: <div class="pods-form-ui-row pods-form-ui-row-name-{field}">
-        // Inputs get id="pods-form-ui-{field}" and name="{field}"
+        // Pods renders row wrappers with "pods-field-" prefix in class names
+        // e.g. <div class="pods-form-ui-row pods-form-ui-row-name-pods-field-lizenznummer">
+        // Inputs get id="pods-form-ui-pods-field-{field}" and name="pods_field_{field}"
         function findFieldWrap(fieldName) {
-            return document.querySelector('.pods-form-ui-row-name-' + fieldName)
+            return document.querySelector('.pods-form-ui-row-name-pods-field-' + fieldName)
+                || document.querySelector('.pods-form-ui-row-name-' + fieldName)
                 || document.querySelector('.pods-form-ui-field-name-' + fieldName);
         }
 
         function findFieldInput(fieldName) {
-            return document.getElementById('pods-form-ui-' + fieldName)
-                || document.querySelector('input[name="' + fieldName + '"]')
-                || document.querySelector('input[name$="[' + fieldName + ']"]');
+            return document.getElementById('pods-form-ui-pods-field-' + fieldName)
+                || document.getElementById('pods-form-ui-' + fieldName)
+                || document.querySelector('input[name="pods_field_' + fieldName + '"]')
+                || document.querySelector('input[name="' + fieldName + '"]');
         }
 
         function findTeamSelect() {
-            // try common Pods patterns first
-            var el = document.getElementById('pods-form-ui-team')
+            // Use exact name match to avoid hitting "pods_field_team-rennklasse" etc.
+            return document.querySelector('select[name="pods_field_team"]')
                 || document.querySelector('select[name="team"]')
-                || document.querySelector('select[name$="[team]"]')
-                || document.querySelector('select[id*="team"]')
-                || document.querySelector('select[name*="team"]');
-            return el;
+                || document.getElementById('pods-form-ui-pods-field-team')
+                || document.getElementById('pods-form-ui-team');
         }
 
         function logAllSelects() {
@@ -93,10 +94,10 @@ add_action('wp_footer', function() {
             selects.forEach(function(s) {
                 console.log('  id="' + s.id + '" name="' + s.name + '" class="' + s.className + '"');
             });
-            var inputs = document.querySelectorAll('input[type="hidden"][name*="team"], input[name*="team"]');
-            console.log('[meldetool] team-related inputs (' + inputs.length + '):');
-            inputs.forEach(function(i) {
-                console.log('  id="' + i.id + '" name="' + i.name + '" type="' + i.type + '" value="' + i.value + '"');
+            ['lizenznummer', 'uci_id'].forEach(function(fieldName) {
+                var wrap = findFieldWrap(fieldName);
+                var input = findFieldInput(fieldName);
+                console.log('[meldetool] field "' + fieldName + '": wrap=', wrap, 'input=', input);
             });
         }
 
@@ -134,6 +135,7 @@ add_action('wp_footer', function() {
                 return false;
             }
             console.log('[meldetool] team select found:', teamSelect, 'optional IDs:', optionalTeamIds);
+            logAllSelects();
             applyVisibility();
             teamSelect.addEventListener('change', applyVisibility);
             return true;
