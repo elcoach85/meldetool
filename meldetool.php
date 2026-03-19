@@ -42,9 +42,29 @@ function meldetool_get_license_optional_team_ids() {
     return $team_ids;
 }
 
+function meldetool_get_iban_bic_visible_team_ids() {
+    $team_ids = array();
+    $teams = get_posts(array(
+        'post_type' => 'team',
+        'post_status' => 'any',
+        'numberposts' => -1,
+        'fields' => 'ids',
+    ));
+
+    foreach ($teams as $team_id) {
+        $title = (string) get_the_title((int) $team_id);
+        if (stripos($title, 'Einzelstarter') !== false) {
+            $team_ids[] = (int) $team_id;
+        }
+    }
+
+    return $team_ids;
+}
+
 add_action('wp_footer', function() {
 
     $optional_team_ids = meldetool_get_license_optional_team_ids();
+    $iban_bic_team_ids = meldetool_get_iban_bic_visible_team_ids();
     // Debug: zeigt im HTML-Source welche Teams PHP gefunden hat
     // und gibt alle Team-Titel aus, damit der Präfix-Vergleich geprüft werden kann
     $all_teams_debug = array();
@@ -57,7 +77,9 @@ add_action('wp_footer', function() {
     <script>
     (function() {
         var optionalTeamIds = <?php echo wp_json_encode(array_values($optional_team_ids)); ?>;
+        var ibanBicTeamIds = <?php echo wp_json_encode(array_values($iban_bic_team_ids)); ?>;
         console.log('[meldetool] optional team IDs:', optionalTeamIds);
+        console.log('[meldetool] iban/bic team IDs:', ibanBicTeamIds);
 
         function asInt(value) {
             var parsed = parseInt(value, 10);
@@ -118,7 +140,7 @@ add_action('wp_footer', function() {
             selects.forEach(function(s) {
                 console.log('  id="' + s.id + '" name="' + s.name + '" class="' + s.className + '"');
             });
-            ['lizenznummer', 'uci_id'].forEach(function(fieldName) {
+            ['lizenznummer', 'uci_id', 'iban', 'bic'].forEach(function(fieldName) {
                 var wrap = findFieldWrap(fieldName);
                 var input = findFieldInput(fieldName);
                 console.log('[meldetool] field "' + fieldName + '": wrap=', wrap, 'input=', input);
@@ -133,6 +155,7 @@ add_action('wp_footer', function() {
 
             var selectedTeamId = asInt(teamSelect.value);
             var isOptional = optionalTeamIds.indexOf(selectedTeamId) !== -1;
+            var isEinzelstarter = ibanBicTeamIds.indexOf(selectedTeamId) !== -1;
 
             ['lizenznummer', 'uci_id'].forEach(function(fieldName) {
                 var wrap = findFieldWrap(fieldName);
@@ -150,6 +173,17 @@ add_action('wp_footer', function() {
                 if (!isOptional && input.value === 'nicht erforderlich') {
                     input.value = '';
                 }
+            });
+
+            ['iban', 'bic'].forEach(function(fieldName) {
+                var wrap = findFieldWrap(fieldName);
+                var input = findFieldInput(fieldName);
+                if (!wrap || !input) {
+                    return;
+                }
+
+                wrap.style.display = isEinzelstarter ? '' : 'none';
+                input.required = false;
             });
         }
 
