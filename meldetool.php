@@ -95,13 +95,14 @@ add_action('wp_footer', function() {
             return Array.from(new Set([fieldName, dash, underscore]));
         }
 
-        function findFieldWrap(fieldName) {
+        function findFieldWrap(fieldName, root) {
+            var scope = root || document;
             var names = fieldNameVariants(fieldName);
             for (var i = 0; i < names.length; i++) {
                 var name = names[i];
-                var wrap = document.querySelector('.pods-form-ui-row-name-pods-field-' + name)
-                    || document.querySelector('.pods-form-ui-row-name-' + name)
-                    || document.querySelector('.pods-form-ui-field-name-' + name);
+                var wrap = scope.querySelector('.pods-form-ui-row-name-pods-field-' + name)
+                    || scope.querySelector('.pods-form-ui-row-name-' + name)
+                    || scope.querySelector('.pods-form-ui-field-name-' + name);
                 if (wrap) {
                     return wrap;
                 }
@@ -109,16 +110,17 @@ add_action('wp_footer', function() {
             return null;
         }
 
-        function findFieldInput(fieldName) {
+        function findFieldInput(fieldName, root) {
+            var scope = root || document;
             var names = fieldNameVariants(fieldName);
             for (var i = 0; i < names.length; i++) {
                 var name = names[i];
-                var input = document.getElementById('pods-form-ui-pods-field-' + name)
-                    || document.getElementById('pods-form-ui-' + name)
-                    || document.querySelector('input[name="pods_field_' + name + '"]')
-                    || document.querySelector('input[name="' + name + '"]')
-                    || document.querySelector('textarea[name="pods_field_' + name + '"]')
-                    || document.querySelector('textarea[name="' + name + '"]');
+                var input = scope.querySelector('#pods-form-ui-pods-field-' + name)
+                    || scope.querySelector('#pods-form-ui-' + name)
+                    || scope.querySelector('input[name="pods_field_' + name + '"]')
+                    || scope.querySelector('input[name="' + name + '"]')
+                    || scope.querySelector('textarea[name="pods_field_' + name + '"]')
+                    || scope.querySelector('textarea[name="' + name + '"]');
                 if (input) {
                     return input;
                 }
@@ -140,9 +142,11 @@ add_action('wp_footer', function() {
             selects.forEach(function(s) {
                 console.log('  id="' + s.id + '" name="' + s.name + '" class="' + s.className + '"');
             });
-            ['lizenznummer', 'uci_id', 'iban', 'bic'].forEach(function(fieldName) {
-                var wrap = findFieldWrap(fieldName);
-                var input = findFieldInput(fieldName);
+            var teamSelect = findTeamSelect();
+            var riderForm = teamSelect ? (teamSelect.closest('form') || document) : document;
+            ['lizenznummer', 'uci_id', 'iban', 'bic', 'kontoinhaber'].forEach(function(fieldName) {
+                var wrap = findFieldWrap(fieldName, riderForm);
+                var input = findFieldInput(fieldName, riderForm);
                 console.log('[meldetool] field "' + fieldName + '": wrap=', wrap, 'input=', input);
             });
         }
@@ -152,14 +156,15 @@ add_action('wp_footer', function() {
             if (!teamSelect) {
                 return;
             }
+            var riderForm = teamSelect.closest('form') || document;
 
             var selectedTeamId = asInt(teamSelect.value);
             var isOptional = optionalTeamIds.indexOf(selectedTeamId) !== -1;
             var isEinzelstarter = ibanBicTeamIds.indexOf(selectedTeamId) !== -1;
 
             ['lizenznummer', 'uci_id'].forEach(function(fieldName) {
-                var wrap = findFieldWrap(fieldName);
-                var input = findFieldInput(fieldName);
+                var wrap = findFieldWrap(fieldName, riderForm);
+                var input = findFieldInput(fieldName, riderForm);
                 if (!wrap || !input) {
                     return;
                 }
@@ -175,9 +180,9 @@ add_action('wp_footer', function() {
                 }
             });
 
-            ['iban', 'bic'].forEach(function(fieldName) {
-                var wrap = findFieldWrap(fieldName);
-                var input = findFieldInput(fieldName);
+            ['iban', 'bic', 'kontoinhaber'].forEach(function(fieldName) {
+                var wrap = findFieldWrap(fieldName, riderForm);
+                var input = findFieldInput(fieldName, riderForm);
                 if (!wrap || !input) {
                     return;
                 }
