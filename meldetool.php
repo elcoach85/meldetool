@@ -67,17 +67,41 @@ add_action('wp_footer', function() {
         // Pods renders row wrappers with "pods-field-" prefix in class names
         // e.g. <div class="pods-form-ui-row pods-form-ui-row-name-pods-field-lizenznummer">
         // Inputs get id="pods-form-ui-pods-field-{field}" and name="pods_field_{field}"
+        function fieldNameVariants(fieldName) {
+            var dash = fieldName.replace(/_/g, '-');
+            var underscore = fieldName.replace(/-/g, '_');
+            return Array.from(new Set([fieldName, dash, underscore]));
+        }
+
         function findFieldWrap(fieldName) {
-            return document.querySelector('.pods-form-ui-row-name-pods-field-' + fieldName)
-                || document.querySelector('.pods-form-ui-row-name-' + fieldName)
-                || document.querySelector('.pods-form-ui-field-name-' + fieldName);
+            var names = fieldNameVariants(fieldName);
+            for (var i = 0; i < names.length; i++) {
+                var name = names[i];
+                var wrap = document.querySelector('.pods-form-ui-row-name-pods-field-' + name)
+                    || document.querySelector('.pods-form-ui-row-name-' + name)
+                    || document.querySelector('.pods-form-ui-field-name-' + name);
+                if (wrap) {
+                    return wrap;
+                }
+            }
+            return null;
         }
 
         function findFieldInput(fieldName) {
-            return document.getElementById('pods-form-ui-pods-field-' + fieldName)
-                || document.getElementById('pods-form-ui-' + fieldName)
-                || document.querySelector('input[name="pods_field_' + fieldName + '"]')
-                || document.querySelector('input[name="' + fieldName + '"]');
+            var names = fieldNameVariants(fieldName);
+            for (var i = 0; i < names.length; i++) {
+                var name = names[i];
+                var input = document.getElementById('pods-form-ui-pods-field-' + name)
+                    || document.getElementById('pods-form-ui-' + name)
+                    || document.querySelector('input[name="pods_field_' + name + '"]')
+                    || document.querySelector('input[name="' + name + '"]')
+                    || document.querySelector('textarea[name="pods_field_' + name + '"]')
+                    || document.querySelector('textarea[name="' + name + '"]');
+                if (input) {
+                    return input;
+                }
+            }
+            return null;
         }
 
         function findTeamSelect() {
