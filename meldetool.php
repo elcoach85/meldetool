@@ -65,21 +65,32 @@ add_action('wp_footer', function() {
 
     $optional_team_ids = meldetool_get_license_optional_team_ids();
     $iban_bic_team_ids = meldetool_get_iban_bic_visible_team_ids();
+    $logging_enabled = meldetool_is_logging_enabled();
     // Debug: zeigt im HTML-Source welche Teams PHP gefunden hat
     // und gibt alle Team-Titel aus, damit der Präfix-Vergleich geprüft werden kann
     $all_teams_debug = array();
-    $all_posts = get_posts(array('post_type' => 'team', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids'));
-    foreach ($all_posts as $tid) {
-        $all_teams_debug[(int)$tid] = get_the_title((int)$tid);
+    if ($logging_enabled) {
+        $all_posts = get_posts(array('post_type' => 'team', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids'));
+        foreach ($all_posts as $tid) {
+            $all_teams_debug[(int)$tid] = get_the_title((int)$tid);
+        }
     }
     ?>
+    <?php if ($logging_enabled): ?>
     <!-- meldetool debug: optional_team_ids=<?php echo esc_html(wp_json_encode($optional_team_ids)); ?> all_teams=<?php echo esc_html(wp_json_encode($all_teams_debug)); ?> -->
+    <?php endif; ?>
     <script>
     (function() {
+        var loggingEnabled = <?php echo wp_json_encode($logging_enabled); ?>;
+        function meldLog(message) {
+            if (loggingEnabled) {
+                console.log(message);
+            }
+        }
         var optionalTeamIds = <?php echo wp_json_encode(array_values($optional_team_ids)); ?>;
         var ibanBicTeamIds = <?php echo wp_json_encode(array_values($iban_bic_team_ids)); ?>;
-        console.log('[meldetool] optional team IDs:', optionalTeamIds);
-        console.log('[meldetool] iban/bic team IDs:', ibanBicTeamIds);
+        meldLog('[meldetool] optional team IDs: ' + JSON.stringify(optionalTeamIds));
+        meldLog('[meldetool] iban/bic team IDs: ' + JSON.stringify(ibanBicTeamIds));
 
         function asInt(value) {
             var parsed = parseInt(value, 10);
@@ -138,16 +149,16 @@ add_action('wp_footer', function() {
 
         function logAllSelects() {
             var selects = document.querySelectorAll('select');
-            console.log('[meldetool] all <select> elements found (' + selects.length + '):');
+            meldLog('[meldetool] all <select> elements found (' + selects.length + '):');
             selects.forEach(function(s) {
-                console.log('  id="' + s.id + '" name="' + s.name + '" class="' + s.className + '"');
+                meldLog('  id="' + s.id + '" name="' + s.name + '" class="' + s.className + '"');
             });
             var teamSelect = findTeamSelect();
             var riderForm = teamSelect ? (teamSelect.closest('form') || document) : document;
             ['lizenznummer', 'uci_id', 'iban', 'bic', 'kontoinhaber', 'ist_kapitaen'].forEach(function(fieldName) {
                 var wrap = findFieldWrap(fieldName, riderForm);
                 var input = findFieldInput(fieldName, riderForm);
-                console.log('[meldetool] field "' + fieldName + '": wrap=', wrap, 'input=', input);
+                meldLog('[meldetool] field "' + fieldName + '": wrap=' + (wrap ? 'found' : 'not found') + ', input=' + (input ? 'found' : 'not found'));
             });
         }
 
@@ -208,7 +219,7 @@ add_action('wp_footer', function() {
             if (!teamSelect) {
                 return false;
             }
-            console.log('[meldetool] team select found:', teamSelect, 'optional IDs:', optionalTeamIds);
+            meldLog('[meldetool] team select found, optional IDs: ' + JSON.stringify(optionalTeamIds));
             logAllSelects();
             applyVisibility();
             teamSelect.addEventListener('change', applyVisibility);
@@ -221,7 +232,7 @@ add_action('wp_footer', function() {
                 tries++;
                 if (boot() || tries > 20) {
                     if (tries > 20) {
-                        console.warn('[meldetool] team select not found after ' + tries + ' attempts.');
+                        meldLog('[meldetool] WARNING: team select not found after ' + tries + ' attempts.');
                         logAllSelects();
                     }
                     clearInterval(timer);

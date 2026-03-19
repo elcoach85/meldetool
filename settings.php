@@ -1,6 +1,11 @@
 <?php
 /* Settings page for Meldetool ------------------------------------------------- */
 
+function meldetool_is_logging_enabled() {
+    $opts = get_option('meldetool_options', array());
+    return !empty($opts['enable_logging']) ? true : false;
+}
+
 function meldetool_default_mail_texts() {
     return array(
         'confirmation_subject' => '[Race Days] Teammeldung erhalten',
@@ -24,6 +29,13 @@ add_action('admin_init', function() {
     add_settings_section('meldetool_main', 'Allgemeine Einstellungen', function() {
         echo '<p>Einstellungen für E-Mail-Benachrichtigungen und Vorlagen.</p>';
     }, 'meldetool_settings');
+
+    add_settings_field('enable_logging', 'Logging aktivieren', function() {
+        $opts = get_option('meldetool_options', array());
+        $val = isset($opts['enable_logging']) ? (bool) $opts['enable_logging'] : false;
+        printf('<input type="checkbox" name="meldetool_options[enable_logging]" value="1" %s />', checked(1, (int) $val, false));
+        echo '<span class="description">Aktiviert Debug-Logging im Frontend und Backend (standardmäßig deaktiviert).</span>';
+    }, 'meldetool_settings', 'meldetool_main');
 
     add_settings_field('send_confirmation', 'Bestätigungs-E-Mails senden', function() {
         $opts = get_option('meldetool_options', array());
@@ -126,6 +138,7 @@ function meldetool_sanitize_options($input) {
     $defaults = meldetool_default_mail_texts();
     $out = array();
 
+    $out['enable_logging'] = !empty($input['enable_logging']) ? 1 : 0;
     $out['send_confirmation'] = !empty($input['send_confirmation']) ? 1 : 0;
     $out['from_email'] = !empty($input['from_email']) && is_email($input['from_email']) ? sanitize_email($input['from_email']) : '';
     $out['reply_to'] = !empty($input['reply_to']) && is_email($input['reply_to']) ? sanitize_email($input['reply_to']) : '';
