@@ -10,7 +10,7 @@ function meldetool_default_mail_texts() {
         'rider_confirmation_subject' => '[Race Days] Bitte E-Mail-Adresse bestätigen',
         'rider_confirmation_message' => "Hallo {ridername},\n\nvielen Dank für deine Anmeldung im Team '{teamname}'.\n\nBitte bestätige deine E-Mail-Adresse über folgenden Link:\n{confirm_url}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
         'rider_details_subject' => '[Race Days] Fahrerdetails bestätigt',
-        'rider_details_message' => "Hallo,\n\ndie E-Mail-Adresse für Fahrer*in {ridername} (Team: {teamname}) wurde bestätigt.\n\nFahrerdetails:\n{riderdetails}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
+        'rider_details_message' => "Hallo {ridername},\n\ndie E-Mail-Adresse für Fahrer*in {ridername} (Team: {teamname}) wurde bestätigt und der/die Fahrer*in wurde gemeldet.\n\nFahrerdetails:\n{riderdetails}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
     );
 }
 

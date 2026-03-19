@@ -65,7 +65,7 @@ function meldetool_get_team_details_text($team_id, $teamname = '') {
     return implode("\n", $details);
 }
 
-function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_id = 0, $send_copy_to_orga = false) {
+function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_id = 0, $send_copy_to_orga = false, $append_team_details = true) {
     $opts = get_option('meldetool_options', array());
     $from_name = 'Race Days Orga-Team';
     $from_email = (!empty($opts['from_email']) && is_email($opts['from_email']))
@@ -87,7 +87,7 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
             $message = "Hallo " . $teammanager . ",\n\n" . ltrim((string) $message);
         }
     }
-    if (!$has_teamdetails_placeholder && !empty($team_details)) {
+    if ($append_team_details && !$has_teamdetails_placeholder && !empty($team_details)) {
         $message .= "\n\nTeamdetails:\n" . $team_details;
     }
 
@@ -255,7 +255,7 @@ function meldetool_send_rider_details_mail($rider_id) {
 
     $sent_any = false;
     if (!empty($rider_email) && is_email($rider_email)) {
-        meldetool_send_team_mail($rider_email, $teamname, $subject, $rider_message, $team_id);
+        meldetool_send_team_mail($rider_email, $teamname, $subject, $rider_message, $team_id, false, false);
         $sent_any = true;
     }
 
@@ -264,7 +264,7 @@ function meldetool_send_rider_details_mail($rider_id) {
         $manager_message .= "deinem Team wurde eine*e neue*r Fahrer*in hinzugefügt.\n\n";
         $manager_message .= "Fahrerdetails:\n{riderdetails}";
         $manager_message = str_replace('{riderdetails}', $rider_details, $manager_message);
-        meldetool_send_team_mail($manager_email, $teamname, $subject, $manager_message, $team_id);
+        meldetool_send_team_mail($manager_email, $teamname, $subject, $manager_message, $team_id, false, false);
         $sent_any = true;
     }
 
