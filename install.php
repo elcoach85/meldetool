@@ -1,6 +1,9 @@
 <?php
+
+$meldetool_main_file = MELDETOOL_PLUGIN_DIR . 'meldetool.php';
+
 // Taxonomien und Terms bei Plugin-Aktivierung mit Pods anlegen
-register_activation_hook(__FILE__, function() {
+register_activation_hook($meldetool_main_file, function() {
     if (!function_exists('pods_api')) {
         // Pods ist nicht aktiv
         deactivate_plugins(plugin_basename(__FILE__));
@@ -220,7 +223,7 @@ add_action('admin_notices', function() {
 
 
 // Deinstallationsroutine: Nutzer fragen, ob Pods und Terms gelöscht werden sollen (UNTESTED!)
-register_uninstall_hook(__FILE__, 'meldetool_uninstall');
+register_uninstall_hook($meldetool_main_file, 'meldetool_uninstall');
 
 function meldetool_uninstall() {
     // Immer alle zugehörigen Pods und Terms löschen
