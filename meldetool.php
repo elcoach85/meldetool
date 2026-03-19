@@ -23,6 +23,14 @@ add_action('init', function() {
     register_taxonomy_for_object_type('rennklasse', 'team');
 });
 
+/**
+ * Liefert IDs aller Teams, bei denen Lizenznummer optional ist
+ * 
+ * Diese Funktion identifiziert Teams mit "Hobby" im Namen.
+ * Bei Hobby-Teams sind Lizenznummer und UCI-ID nicht erforderlich.
+ * 
+ * @return array Team-IDs für optionale Lizenzfelder
+ */
 function meldetool_get_license_optional_team_ids() {
     $team_ids = array();
     $teams = get_posts(array(
@@ -42,6 +50,14 @@ function meldetool_get_license_optional_team_ids() {
     return $team_ids;
 }
 
+/**
+ * Liefert IDs aller Teams, bei denen IBAN/BIC-Felder sichtbar sind
+ * 
+ * Diese Funktion identifiziert Teams mit "Einzelstarter" im Namen.
+ * Bei Einzelstarter-Teams müssen Bankdaten (IBAN, BIC, Kontoinhaber) angegeben werden.
+ * 
+ * @return array Team-IDs mit sichtbaren IBAN/BIC-Feldern
+ */
 function meldetool_get_iban_bic_visible_team_ids() {
     $team_ids = array();
     $teams = get_posts(array(
@@ -61,13 +77,23 @@ function meldetool_get_iban_bic_visible_team_ids() {
     return $team_ids;
 }
 
+/**
+ * Frontend-Formular-Logik: Dynamische Feldanzeige basierend auf Team-Typ
+ * 
+ * Diese Action fügt JavaScript im Footer ein, das Fahrerformulare dynamisch anpasst:
+ * - Hobbyteams: Lizenznummer und UCI-ID verstecken, als optional markieren
+ * - Einzelstarter-Teams: IBAN/BIC/Kontoinhaber anzeigen
+ * - Normale Teams: Kapitän-Checkbox sichtbar
+ * 
+ * Das Script findet das Team-Dropdown-Feld und reagiert auf Änderungen.
+ */
 add_action('wp_footer', function() {
 
     $optional_team_ids = meldetool_get_license_optional_team_ids();
     $iban_bic_team_ids = meldetool_get_iban_bic_visible_team_ids();
     $logging_enabled = meldetool_is_logging_enabled();
-    // Debug: zeigt im HTML-Source welche Teams PHP gefunden hat
-    // und gibt alle Team-Titel aus, damit der Präfix-Vergleich geprüft werden kann
+    
+    // Debug: sammelt alle Team-IDs und -Namen für Logging (nur wenn Logging aktiv)
     $all_teams_debug = array();
     if ($logging_enabled) {
         $all_posts = get_posts(array('post_type' => 'team', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids'));
@@ -80,32 +106,53 @@ add_action('wp_footer', function() {
     <!-- meldetool debug: optional_team_ids=<?php echo esc_html(wp_json_encode($optional_team_ids)); ?> all_teams=<?php echo esc_html(wp_json_encode($all_teams_debug)); ?> -->
     <?php endif; ?>
     <script>
+    /**
+     * IIFE (Immediately Invoked Function Expression) für Feldanzeige-Logik
+     * Scope-Isolation verhindert Konflikte mit anderen Scripts
+     */
     (function() {
         var loggingEnabled = <?php echo wp_json_encode($logging_enabled); ?>;
+        
+        // Hilfsfunktion: bedingte `console.log()` basierend auf Logging-Settings
         function meldLog(message) {
             if (loggingEnabled) {
                 console.log(message);
             }
         }
+        
+        // Team-Arrays aus PHP übernehmen
         var optionalTeamIds = <?php echo wp_json_encode(array_values($optional_team_ids)); ?>;
         var ibanBicTeamIds = <?php echo wp_json_encode(array_values($iban_bic_team_ids)); ?>;
         meldLog('[meldetool] optional team IDs: ' + JSON.stringify(optionalTeamIds));
         meldLog('[meldetool] iban/bic team IDs: ' + JSON.stringify(ibanBicTeamIds));
 
+        // Sichere Integer-Konvertierung mit NaN-Handling
         function asInt(value) {
             var parsed = parseInt(value, 10);
             return isNaN(parsed) ? 0 : parsed;
         }
 
-        // Pods renders row wrappers with "pods-field-" prefix in class names
-        // e.g. <div class="pods-form-ui-row pods-form-ui-row-name-pods-field-lizenznummer">
-        // Inputs get id="pods-form-ui-pods-field-{field}" and name="pods_field_{field}"
+        /**
+         * Generiert verschiedene Schreibweisen eines Feldnamens (mit/ohne Bindestrich)
+         * Pods verwendet konsistent unterschiedliche Naming-Konventionen:
+         * - mit Unterstrichen (pods_field_lizenznummer)
+         * - mit Bindestrichen (pods-field-lizenznummer)
+         * Diese Funktion erzeugt alle Varianten aus einem kanonischen Namen
+         */
         function fieldNameVariants(fieldName) {
             var dash = fieldName.replace(/_/g, '-');
             var underscore = fieldName.replace(/-/g, '_');
             return Array.from(new Set([fieldName, dash, underscore]));
         }
 
+        /**
+         * Findet das äußere Wrapper-Element eines Pods-Formularfeldes
+         * Wrapper-Element ist notwendig zum Verstecken/Anzeigen des ganzen Feldes inkl. Label
+         * 
+         * @param {string} fieldName - Feldname (z.B. "lizenznummer")
+         * @param {Element} root - Suchbereich (Standard: ganzes Dokument)
+         * @return {Element|null} Gefundenes Wrapper-Element oder null
+         */
         function findFieldWrap(fieldName, root) {
             var scope = root || document;
             var names = fieldNameVariants(fieldName);
@@ -121,6 +168,14 @@ add_action('wp_footer', function() {
             return null;
         }
 
+        /**
+         * Findet das Input-Element eines Pods-Formularfeldes
+         * Input-Element wird direkt manipuliert (value, required-Attribut)
+         * 
+         * @param {string} fieldName - Feldname (z.B. "lizenznummer")
+         * @param {Element} root - Suchbereich (Standard: ganzes Dokument)
+         * @return {Element|null} Gefundenes Input-Element oder null
+         */
         function findFieldInput(fieldName, root) {
             var scope = root || document;
             var names = fieldNameVariants(fieldName);
@@ -139,14 +194,22 @@ add_action('wp_footer', function() {
             return null;
         }
 
+        /**
+         * Findet das Team-Dropdown-Select-Element im Formular
+         * Trigger für die gesamte Feldanzeige-Logik
+         * Verwendet genaue Namen-Matching, um ähnliche Felder nicht zu treffen
+         */
         function findTeamSelect() {
-            // Use exact name match to avoid hitting "pods_field_team-rennklasse" etc.
             return document.querySelector('select[name="pods_field_team"]')
                 || document.querySelector('select[name="team"]')
                 || document.getElementById('pods-form-ui-pods-field-team')
                 || document.getElementById('pods-form-ui-team');
         }
 
+        /**
+         * Debug-Funktion: Loggt alle Select-Elemente und Feldstatus im DOM
+         * Hilft beim Troubleshooting bei Formularen, die nicht richtig angepasst werden
+         */
         function logAllSelects() {
             var selects = document.querySelectorAll('select');
             meldLog('[meldetool] all <select> elements found (' + selects.length + '):');
@@ -162,6 +225,15 @@ add_action('wp_footer', function() {
             });
         }
 
+        /**
+         * Wendet Feldanzeige-Regeln basierend auf ausgewähltem Team-Typ an
+         * 
+         * Logik:
+         * 1. Bei Hobby-Teams: Lizenznummer/UCI-ID verstecken, Wert auf "n/a" setzen
+         * 2. Bei Einzelstarter: IBAN/BIC/Kontoinhaber anzeigen
+         * 3. Kapitän-Checkbox nur bei normalen Teams zeigen
+         * 4. Required-Attribute dynamisch aktualisieren
+         */
         function applyVisibility() {
             var teamSelect = findTeamSelect();
             if (!teamSelect) {
@@ -184,9 +256,9 @@ add_action('wp_footer', function() {
                 input.required = !isOptional;
 
                 if (isOptional && !input.value) {
-                    input.value = 'nicht erforderlich';
+                    input.value = 'n/a';
                 }
-                if (!isOptional && input.value === 'nicht erforderlich') {
+                if (!isOptional && input.value === 'n/a') {
                     input.value = '';
                 }
             });
@@ -214,6 +286,15 @@ add_action('wp_footer', function() {
             });
         }
 
+        /**
+         * Initialisiert die Feldanzeige-Logik
+         * 
+         * 1. Sucht Team-Select-Element
+         * 2. Wendet Sichtbarkeitsregeln sofort an
+         * 3. Registriert Change-Event-Listener
+         * 
+         * @return {boolean} true wenn erfolgreich initialisiert, false wenn Team-Select nicht gefunden
+         */
         function boot() {
             var teamSelect = findTeamSelect();
             if (!teamSelect) {
@@ -226,6 +307,11 @@ add_action('wp_footer', function() {
             return true;
         }
 
+        /**
+         * Versucht Boot mit Retry-Mechanik
+         * Notwendig da Pods-Formular asynchron geladen werden kann (z.B. in Modals)
+         * Versucht alle 250ms, bis zu 20 mal (= 5 Sekunden Wartezeit)
+         */
         if (!boot()) {
             var tries = 0;
             var timer = setInterval(function() {
@@ -245,7 +331,14 @@ add_action('wp_footer', function() {
 });
 
 /**
- * Gemeinsame Funktion für den Mailversand an Teammanager
+ * Erstellt formatiertes Text-Snippet mit Team-Detailinformationen
+ * 
+ * Wird verwendet in E-Mail-Benachrichtigungen als Placeholder {teamdetails}
+ * Enthält Teammanager, E-Mail, Bankdaten, Rennklasse etc.
+ * 
+ * @param int $team_id - WordPress Post-ID des Teams
+ * @param string $teamname - Optional: Teamname (wird von Post-Title abgeleitet falls leer)
+ * @return string Formatierte Team-Details, zeilengetrennt
  */
 function meldetool_get_team_details_text($team_id, $teamname = '') {
     $details = array();
@@ -286,32 +379,60 @@ function meldetool_get_team_details_text($team_id, $teamname = '') {
     return implode("\n", $details);
 }
 
+/**
+ * Versendet E-Mail an Teammanager mit Platzhalter-Ersetzung und Logging
+ * 
+ * Platzhalter die ersetzt werden:
+ * - {teamname}: Name des Teams
+ * - {teammanager}: Name des Sportlichen Leiters/Teammanagers
+ * - {teamdetails}: Vollständige Team-Informationen
+ * 
+ * Logging:
+ * - Sämtliche versendeten E-Mails (erfolgreich/fehlgeschlagen) werden in mail_log.txt protokolliert
+ * - Enthält Empfänger, Betreff, Header und Nachrichtentext
+ * 
+ * @param string $email - E-Mail-Adresse des Empfängers
+ * @param string $teamname - Name des Teams
+ * @param string $subject - E-Mail-Betreff
+ * @param string $message - E-Mail-Nachrichtentext (mit Platzhaltern)
+ * @param int $team_id - WordPress Post-ID des Teams (optional, für Detailinformationen)
+ * @param bool $send_copy_to_orga - CC-Kopie an Orga-E-Mail versenden?
+ * @param bool $append_team_details - Team-Details automatisch anhängen falls {teamdetails} nicht gesetzt?
+ * @return bool true wenn wp_mail erfolgreich war, false sonst
+ */
 function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_id = 0, $send_copy_to_orga = false, $append_team_details = true) {
     $opts = get_option('meldetool_options', array());
     $from_name = 'Race Days Orga-Team';
     $from_email = (!empty($opts['from_email']) && is_email($opts['from_email']))
         ? $opts['from_email']
         : get_option('admin_email');
+    // Platzhalter-Ersetzung vorbereiten
     $teammanager = !empty($team_id) ? get_post_meta((int) $team_id, 'teammanager', true) : '';
     $team_details = meldetool_get_team_details_text((int) $team_id, $teamname);
     $has_teamdetails_placeholder = (strpos($message, '{teamdetails}') !== false);
     $has_teammanager_placeholder = (strpos($message, '{teammanager}') !== false);
+    
+    // Alle Platzhalter in der Nachricht ersetzen
     $message = str_replace(
         array('{teamname}', '{teamdetails}', '{teammanager}'),
         array($teamname, $team_details, $teammanager),
         $message
     );
-    // Ensure the team manager confirmation is personalized even with old templates.
+    
+    // Fallback-Personalisierung: Wenn {teammanager} nicht im Template, trotzdem mit Name grüßen
     if (!$has_teammanager_placeholder && !empty($teammanager) && !empty($email) && !empty($team_id)) {
         $manager_email = get_post_meta((int) $team_id, 'email_manager', true);
         if (!empty($manager_email) && strcasecmp((string) $manager_email, (string) $email) === 0) {
             $message = "Hallo " . $teammanager . ",\n\n" . ltrim((string) $message);
         }
     }
+    
+    // Team-Details automatisch anhängen, wenn nicht explizit im Template und vorhanden
     if ($append_team_details && !$has_teamdetails_placeholder && !empty($team_details)) {
         $message .= "\n\nTeamdetails:\n" . $team_details;
     }
 
+    // E-Mail-Header zusammenstellen (From, Reply-To, CC)
     $headers = array('Content-Type: text/plain; charset=UTF-8');
     if (!empty($from_email) && is_email($from_email)) {
         $headers[] = 'From: ' . $from_name . ' <' . $from_email . '>';
@@ -325,8 +446,15 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
             $headers[] = 'Cc: ' . $cc;
         }
     }
+    
+    // E-Mail versenden
     $mail_result = wp_mail($email, $subject, $message, $headers);
-    // Logging
+    
+    /**
+     * Alle E-Mails loggen (unabhängig von Erfolg/Fehler)
+     * Log-Datei: plugins/meldetool/mail_log.txt
+     * Nützlich für Troubleshooting und Audit-Trail
+     */
     $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
     $log_entry = date('Y-m-d H:i:s') . " | TEAM_MAIL | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
     $log_entry .= "To: $email\nSubject: $subject\nHeaders: " . print_r($headers, true) . "\n";
@@ -339,6 +467,15 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
     return $mail_result;
 }
 
+/**
+ * Erstellt formatiertes Text-Snippet mit Fahrer-Detailinformationen
+ * 
+ * Wird in E-Mails und Bestätigungen verwendet als Placeholder {riderdetails}
+ * Enthält Name, E-Mail, Lizenzen, Nationalität, Team, Kategorie, Kapitän-Status
+ * 
+ * @param int $rider_id - WordPress Post-ID des Fahrers
+ * @return string Formatierte Fahrer-Details, zeilengetrennt (oder leerer String wenn ID ungültig)
+ */
 function meldetool_get_rider_details_text($rider_id) {
     $details = array();
     $rider_id = (int) $rider_id;
@@ -393,6 +530,26 @@ function meldetool_get_rider_details_text($rider_id) {
     return implode("\n", $details);
 }
 
+/**
+ * Versendet Bestätigungs-E-Mail an Fahrer mit Bestätigungs-Link (Double-Opt-In)
+ * 
+ * Der Link enthält:
+ * - meldetool_confirm_rider=1
+ * - rider_id: WordPress Post-ID des Fahrers
+ * - token: Eindeutiger Bestätigungs-Token (wird später verglichen)
+ * 
+ * Platzhalter-Variablen im Template:
+ * - {ridername}: Name des Fahrers
+ * - {teamname}: Name des Teams
+ * - {confirm_url}: Bestätigungs-Link mit Token
+ * 
+ * @param int $rider_id - WordPress Post-ID des Fahrers
+ * @param string $rider_email - E-Mail-Adresse des Fahrers
+ * @param string $rider_name - Name des Fahrers
+ * @param string $teamname - Name des Teams
+ * @param string $confirm_url - Vollständige Bestätigungs-URL mit Token
+ * @return bool true wenn wp_mail erfolgreich
+ */
 function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_name, $teamname, $confirm_url) {
     $opts = get_option('meldetool_options', array());
     $from_name = 'Race Days Orga-Team';
@@ -437,12 +594,25 @@ function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_
     return $mail_result;
 }
 
+/**
+ * Versendet Fahrerdetails-Bestätigung nach erfolgreicher E-Mail-Bestätigung
+ * 
+ * Wird automatisch nach Link-Bestätigung (Double-Opt-In) ausgelöst.
+ * Versendet Mail an:
+ * 1. Fahrer: Bestätigung seiner Daten
+ * 2. Teammanager (falls unterschiedlich): Information über neuen Fahrer
+ * 
+ * Verhindert Doppelversand via Meta-Flag: _meldetool_rider_details_sent
+ * 
+ * @param int $rider_id - WordPress Post-ID des Fahrers
+ */
 function meldetool_send_rider_details_mail($rider_id) {
     $rider_id = (int) $rider_id;
     if (!$rider_id) {
         return;
     }
 
+    // Verhindert Doppelversand: Flag wird nur gesetzt, wenn Mail erfolgreich versendet
     $details_sent_meta = '_meldetool_rider_details_sent';
     if (get_post_meta($rider_id, $details_sent_meta, true)) {
         return;
@@ -494,13 +664,23 @@ function meldetool_send_rider_details_mail($rider_id) {
     }
 }
 
-// Fahrer Double-Opt-In: Erst bestaetigen, dann Details versenden
+/**
+ * Double-Opt-In Workflow für Fahrer:
+ * 1. Neuer Fahrer wird angelegt
+ * 2. Bestätigungs-E-Mail mit Token wird versendet
+ * 3. Fahrer klickt Link
+ * 4. Token wird validiert und Fahrerdetails-E-Mail versendet
+ * 
+ * Hook: pods_api_post_save_pod_item_fahrer (Pods Formular-Save)
+ * Verhindert Doppelversand durch Meta-Flags
+ */
 add_action('pods_api_post_save_pod_item_fahrer', function($data, $pod, $id) {
     $id = (int) $id;
     if (!$id) {
         return;
     }
 
+    // Verhindert erneuten Versand von Bestätigungsmails wenn bereits gesendet oder bestätigt
     $confirmation_sent_meta = '_meldetool_rider_confirmation_sent';
     $confirmed_meta = '_meldetool_rider_email_confirmed';
     if (get_post_meta($id, $confirmation_sent_meta, true) || get_post_meta($id, $confirmed_meta, true)) {
@@ -512,21 +692,25 @@ add_action('pods_api_post_save_pod_item_fahrer', function($data, $pod, $id) {
         return;
     }
 
+    // Bestätigungsmails ein-/ausschaltbar via Settings
     $opts = get_option('meldetool_options', array());
     $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
     if (!$enabled) {
         return;
     }
 
+    // Fahrer-Daten sammeln (aus Form-Daten oder Post-Meta)
     $vorname = isset($data['vorname']) ? $data['vorname'] : get_post_meta($id, 'vorname', true);
     $nachname = isset($data['nachname']) ? $data['nachname'] : get_post_meta($id, 'nachname', true);
     $rider_name = trim($vorname . ' ' . $nachname);
     $team_id = isset($data['team']) ? (int) $data['team'] : (int) get_post_meta($id, 'team', true);
     $teamname = $team_id ? get_the_title($team_id) : '';
 
+    // Eindeutiger Token für Bestätigungslink erstellen (32 Zeichen, alphanumerisch)
     $token = wp_generate_password(32, false, false);
     update_post_meta($id, '_meldetool_rider_confirmation_token', $token);
 
+    // Bestätigungs-URL mit Token konstruieren
     $confirm_url = add_query_arg(
         array(
             'meldetool_confirm_rider' => 1,
@@ -536,52 +720,75 @@ add_action('pods_api_post_save_pod_item_fahrer', function($data, $pod, $id) {
         home_url('/')
     );
 
+    // E-Mail versenden und Erfolg protokollieren
     $mail_result = meldetool_send_rider_confirmation_mail($id, $rider_email, $rider_name, $teamname, $confirm_url);
     if ($mail_result) {
         update_post_meta($id, $confirmation_sent_meta, 1);
     }
 }, 10, 3);
 
+/**
+ * Verarbeitet Fahrer-E-Mail-Bestätigung (template_redirect)
+ * 
+ * Ablauf:
+ * 1. URL-Parameter prüfen (meldetool_confirm_rider + rider_id + token)
+ * 2. Token gegen gespeicherten Token validieren (timing-safe comparison)
+ * 3. Meta-Flag setzen: _meldetool_rider_email_confirmed
+ * 4. Fahrerdetails-Mail versenden
+ * 5. Token löschen (einmalige Verwendung)
+ * 
+ * Hook: template_redirect (lädt vor Template, kann HTTP-Status setzen)
+ */
 add_action('template_redirect', function() {
     if (!isset($_GET['meldetool_confirm_rider'])) {
         return;
     }
 
+    // Parameter aus GET extrahieren und validieren
     $rider_id = isset($_GET['rider_id']) ? (int) $_GET['rider_id'] : 0;
     $token = isset($_GET['token']) ? sanitize_text_field(wp_unslash($_GET['token'])) : '';
     if (!$rider_id || empty($token)) {
         wp_die('Ungueltiger Bestaetigungslink.', 'Meldetool', array('response' => 400));
     }
 
+    // Token-Validierung: Timing-safe Comparison verhindert Timing-Attacks
     $stored_token = get_post_meta($rider_id, '_meldetool_rider_confirmation_token', true);
     if (empty($stored_token) || !hash_equals((string) $stored_token, (string) $token)) {
         wp_die('Bestaetigungslink ist ungueltig oder abgelaufen.', 'Meldetool', array('response' => 400));
     }
 
+    // Bestätigung nur einmal verarbeiten
     if (!get_post_meta($rider_id, '_meldetool_rider_email_confirmed', true)) {
         update_post_meta($rider_id, '_meldetool_rider_email_confirmed', 1);
-        delete_post_meta($rider_id, '_meldetool_rider_confirmation_token');
-        meldetool_send_rider_details_mail($rider_id);
+        delete_post_meta($rider_id, '_meldetool_rider_confirmation_token'); // Token nach Verwendung löschen
+        meldetool_send_rider_details_mail($rider_id); // Fahrerdetails-Mail versenden
     }
 
     wp_die('Vielen Dank. Ihre E-Mail-Adresse wurde erfolgreich bestaetigt.', 'Meldetool', array('response' => 200));
 });
 
-// Bestätigungsmail direkt nach Frontend-Formular (Pods) absenden
-// Bestätigungsmail auch über pods_api_post_save_pod_item_team absenden
+/**
+ * Team-Bestätigungsmail: "Wir haben ihre Anmeldung erhalten"
+ * 
+ * Wird nach dem Speichern eines Teams über Pods-Formular versendet (template_redirect)
+ * Verhindert Doppelversand durch Meta-Flag: _meldetool_confirmation_sent
+ * 
+ * Hook: pods_api_post_save_pod_item_team (Pods API nach Save)
+ * 
+ * Nachricht-Inhalte:
+ * - Eingangsbestätigung: Wird sofort versendet
+ * - Veröffentlichungs-Benachrichtigung: Wird versendet wenn Team publish wird (wp_after_insert_post)
+ */
 add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
     $mail_sent_meta_key = '_meldetool_confirmation_sent';
 
-    $testlog = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
-    file_put_contents($testlog, date('Y-m-d H:i:s') . " | pods_api_post_save_pod_item_team | set teamname: " . get_post_meta($id, 'teamname', true) . " | data: " . print_r($data, true) . "\n", FILE_APPEND);
-
-    // Nur einmal senden: wenn bereits versendet, Hook sofort verlassen.
+    // Verhindert Doppelversand: Wenn Meta-Flag bereits gesetzt, Hook beenden
     if (get_post_meta($id, $mail_sent_meta_key, true)) {
-        file_put_contents($testlog, date('Y-m-d H:i:s') . " | pods_api_post_save_pod_item_team | skip: confirmation already sent\n", FILE_APPEND);
         return;
     }
-	
-	// dieser Teil darf nur beim Anlegen ausgeführt werden 
+
+    // Nur beim Anlegen ausführen: Teamname ist beim ersten Save noch nicht gesetzt 
+    // Team-Informationen sammeln (aus Form-Daten oder Meta)
     $teamname = isset($data['teamname']) ? $data['teamname'] : get_post_meta($id, 'teamname', true);
     $email = isset($data['email_manager']) ? $data['email_manager'] : get_post_meta($id, 'email_manager', true);
     if (!empty($email) && is_email($email)) {
@@ -597,26 +804,30 @@ add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
 }, 10, 3);
 
 /**
- * Teamname
+ * Synchronisiert Post-Title mit Teamname (Post Meta)
+ * 
+ * Macht Teamname in Admin-Liste und überall sichtbar
+ * Nur beim Anlegen/Bearbeiten ausgeführt (nicht bei Autosaves/Revisions)
+ * Verhindert Rekursion durch statisches Flag
+ * 
+ * Hook: save_post_team (native WordPress Hook)
  */
 add_action('save_post_team', function($post_id, $post, $update) {
+    // Verhindert Rekursion: wp_update_post() würde diesen Hook erneut aufrufen
     static $is_updating_team_post = false;
-
     if ($is_updating_team_post) {
         return;
     }
 
+    // Ignoriert Autosaves und Revisionen
     if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
         return;
     }
-	
-    // Test-Log: Wird die Funktion überhaupt aufgerufen?
-    $testlog = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
-    file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team HOOK called | post_id: $post_id | update: $update | is_admin: " . (is_admin() ? '1' : '0') . " | wp_is_post_autosave: " . (wp_is_post_autosave($post_id) ? '1' : '0') . " | wp_is_post_revision: " . (wp_is_post_revision($post_id) ? '1' : '0') . " | post_status: ". $post->post_status . "\n", FILE_APPEND);
 
+    // Post-Titel mit Teamname synchronisieren
     $teamname = get_post_meta($post_id, 'teamname', true);
     
-    // Beim Anlegen eines Teams über das Formular ist der teamname NULL/empty (vielleicht alle post_meta-Infos?). Erst beim "veröffentlichen" wird dieser angelegt.
+    // Teamname kann beim ersten Save leer sein, wird beim Veröffentlichen gefüllt
     if ($teamname) {
         $new_title = trim($teamname);
 
@@ -634,13 +845,27 @@ add_action('save_post_team', function($post_id, $post, $update) {
 }, 10, 3);
 
 /**
- * "Team offiziell gemeldet"-Mail: einmalig senden, sobald das Team auf 'publish' steht.
- * wp_after_insert_post feuert erst nach dem vollständigen Save inkl. aller Meta-Daten.
+ * Veröffentlichungs-Bestätigung: "Team ist nun offiziell angemeldet"
+ * 
+ * Wird versendet wenn Team-Status auf 'publish' gesetzt wird (z.B. von Admin genehmigt)
+ * Verhindert Doppelversand durch Meta-Flag: _meldetool_publish_mail_sent
+ * 
+ * Hook: wp_after_insert_post (feuert nach kompletten Save inkl. Meta-Daten)
+ * 
+ * Unterschied zu pods_api_post_save_pod_item_team:
+ * - pods_api: Eingangbestätigung direkt nach Formular-Submit
+ * - wp_after_insert_post: Veröffentlichungs-Bestätigung wenn Admin Team approved
  */
 add_action('wp_after_insert_post', function($post_id, $post, $update) {
     if ($post->post_type !== 'team') return;
     if ($post->post_status !== 'publish') return;
 
+    /**
+     * "Team offiziell gemeldet"-Mail: Einmalig senden sobald Team publish ist
+     * 
+     * Meta-Flag verhindert Doppelversand: _meldetool_publish_mail_sent
+     * Hook wp_after_insert_post feuert nach kompletten Save inklusive Meta-Daten
+     */
     $mail_sent_meta = '_meldetool_publish_mail_sent';
     if (get_post_meta($post_id, $mail_sent_meta, true)) return;
 
@@ -659,17 +884,22 @@ add_action('wp_after_insert_post', function($post_id, $post, $update) {
 }, 10, 3);
 
 /**
- * Fahrername
+ * Synchronisiert Post-Title mit Fahrer-Name (Vorname + Nachname)
+ * 
+ * Macht Fahrernamen in Admin-Listen suchbar und sichtbar
+ * Nur beim Anlegen/Bearbeiten ausgeführt (nicht bei Autosaves/Revisions)
+ * 
+ * Hook: save_post_fahrer (native WordPress Hook)
  */
 add_action('save_post_fahrer', function($post_id, $post, $update) {
-
+    // Ignoriert Autosaves und Revisions
     if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
         return;
     }
 
+    // Post-Titel mit Fahrername synchronisieren
     $vorname = get_post_meta($post_id, 'vorname', true);
     $nachname = get_post_meta($post_id, 'nachname', true);
-    // Beim Anlegen eines Fahrers über das Formular ist der vorname/nachname NULL/empty (vielleicht alle post_meta-Infos?). Erst beim "veröffentlichen" werden diese angelegt.
     if ($vorname || $nachname) {
         $new_title = trim($nachname . ' ' . $vorname);
 
@@ -685,7 +915,12 @@ add_action('save_post_fahrer', function($post_id, $post, $update) {
 }, 10, 3);
 
 /**
- *  show custom columns
+ * Admin Listen: Benutzerdefinierte Spalten definieren
+ * 
+ * Zeigt relevante Fahrer-Informationen direkt in der Übersicht:
+ * Nachname, Vorname, Team, Rennklasse, Kategorie, Lizenzen, UCI-ID
+ * 
+ * Hook: manage_fahrer_posts_columns (WordPress List Table)
  */
 add_filter('manage_fahrer_posts_columns', function($columns) {
     $columns['nachname'] = 'Nachname';
@@ -718,7 +953,12 @@ add_filter('manage_team_posts_columns', function($columns) {
 
 
 /**
- *  fill columns with desired content
+ * Admin Listen: Spalten mit Inhalten füllen
+ * 
+ * Holt die eigentlichen Daten aus Post Meta oder Taxonomien
+ * Behandelt spezielle Fälle wie Team-Links und Kategorie-Namen
+ * 
+ * Hook: manage_fahrer_posts_custom_column (WordPress List Table)
  */
 add_action('manage_fahrer_posts_custom_column', function($column, $post_id) {
     switch ($column) {
@@ -765,6 +1005,12 @@ add_action('manage_fahrer_posts_custom_column', function($column, $post_id) {
 
 
 add_action('manage_team_posts_custom_column', function($column, $post_id) {
+    /**
+     * Füllt Team-Spalten mit Inhalten aus Post Meta oder Taxonomien
+     * 
+     * Rennklasse wird aus der Taxonomie am Team geholt
+     * Andere Felder (Teamname, Manager, E-Mail) aus Post Meta
+     */
     switch ($column) {
         case 'teamname':
         case 'teammanager':
@@ -786,7 +1032,10 @@ add_action('manage_team_posts_custom_column', function($column, $post_id) {
 }, 10, 2);
 
 /**
- * compact optics for the table (one line per entry, remove "Bearbeiten", "Papierkorb", "Purge from cache" etc)
+ * Admin Listen: CSS-Styling für kompakte Darstellung
+ * 
+ * Verkürzt Zeilenhöhe und versteckt Action-Links ("Bearbeiten", "Papierkorb", etc)
+ * für bessere Übersichlichkeit bei vielen Einträgen
  */
 add_action('admin_head', function () {
     $screen = get_current_screen();
@@ -806,7 +1055,12 @@ add_action('admin_head', function () {
 });
 
 /**
- * Team-Filter-Dropdown in der Fahrer-Liste einblenden
+ * Admin Listen: Team-Filter-Dropdown in Fahrer-Liste
+ * 
+ * Ermöglicht schnelle Filterung nach Teams über Dropdown
+ * Wird oben in der Post-Listen-Kopfzeile angezeigt
+ * 
+ * Hook: restrict_manage_posts (Post List Filters)
  */
 add_action('restrict_manage_posts', function ($post_type) {
     if ($post_type !== 'fahrer') {
@@ -840,7 +1094,12 @@ add_action('restrict_manage_posts', function ($post_type) {
 });
 
 /**
- * Filter in Fahrer-Liste anwenden
+ * Admin Listen: Team-Filter mit Post-Meta-Query umsetzen
+ * 
+ * Modifiziert WordPress Query wenn GET-Parameter "team_filter" vorhanden
+ * Sortierung nach Teams möglich über "orderby=team"
+ * 
+ * Hook: pre_get_posts (vor Query-Ausführung, ermöglicht Filterung)
  */
 add_action('pre_get_posts', function ($query) {
     if (!is_admin() || !$query->is_main_query()) {
@@ -875,9 +1134,21 @@ add_filter('manage_edit-fahrer_sortable_columns', function ($columns) {
 
 
 /**
- * DEBUG: 'admin_notices'
- * z.B. folgende URL im browser aufrufen:
- * wp-admin/edit.php?post_type=fahrer&debug_fahrer=6355
+ * Debug-Tool: Fahrerinformationen ausgeben
+ * 
+ * Verwendung:
+ * 1. Als Admin anmelden
+ * 2. Folgende URL aufrufen: wp-admin/edit.php?post_type=fahrer&debug_fahrer=6355
+ * (6355 durch echte Fahrer-ID ersetzen)
+ * 3. Info-Box mit Debugging-Informationen wird oben angezeigt
+ * 
+ * Zeigt:
+ * - Verfügbare Taxonomien
+ * - Kategorie-Terms des Fahrers
+ * - Team-Informationen
+ * - Rennklasse des Teams
+ * 
+ * Hook: admin_notices (Admin Interface Notices)
  */
 add_action('admin_notices', function () {
     if (!is_admin()) return;
@@ -941,6 +1212,9 @@ function sync_relationship_field_with_taxonomy($post_id) {
 }
     */
 
-require_once MELDETOOL_PLUGIN_DIR . 'export_rider_list.php';
-require_once MELDETOOL_PLUGIN_DIR . 'install.php';
-require_once MELDETOOL_PLUGIN_DIR . 'settings.php';
+/**
+ * Zusätzliche Plugin-Module laden
+ */
+require_once MELDETOOL_PLUGIN_DIR . 'export_rider_list.php'; // CSV-Export Funktionalität
+require_once MELDETOOL_PLUGIN_DIR . 'install.php';          // Installation & Aktivierung
+require_once MELDETOOL_PLUGIN_DIR . 'settings.php';         // Admin-Einstellungen Seite
