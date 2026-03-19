@@ -471,7 +471,7 @@ function meldetool_send_rider_details_mail($rider_id) {
 
     if (!empty($manager_email) && is_email($manager_email) && $manager_email !== $rider_email) {
         $manager_message = "Hallo {teammanager},\n\n";
-        $manager_message .= "deinem Team wurde eine*e neue*r Fahrer*in hinzugefügt.\n\n";
+        $manager_message .= "deinem Team '{teamname}' wurde eine*e neue*r Fahrer*in hinzugefügt.\n\n";
         $manager_message .= "Fahrerdetails:\n{riderdetails}";
         $manager_message = str_replace('{riderdetails}', $rider_details, $manager_message);
         meldetool_send_team_mail($manager_email, $teamname, $subject, $manager_message, $team_id, false, false);
