@@ -247,25 +247,28 @@ function meldetool_send_rider_details_mail($rider_id) {
         ? $opts['rider_details_message']
         : (isset($defaults['rider_details_message']) ? $defaults['rider_details_message'] : "Hallo,\n\ndie E-Mail-Adresse fuer Fahrer {ridername} wurde bestaetigt.\n\n{riderdetails}\n");
 
-    $message = str_replace(
+    $rider_message = str_replace(
         array('{ridername}', '{teamname}', '{riderdetails}'),
         array($rider_name, $teamname, $rider_details),
         $message
     );
 
-    $targets = array();
+    $sent_any = false;
     if (!empty($rider_email) && is_email($rider_email)) {
-        $targets[] = $rider_email;
+        meldetool_send_team_mail($rider_email, $teamname, $subject, $rider_message, $team_id);
+        $sent_any = true;
     }
+
     if (!empty($manager_email) && is_email($manager_email) && $manager_email !== $rider_email) {
-        $targets[] = $manager_email;
+        $manager_message = "Hallo {teammanager},\n\n";
+        $manager_message .= "deinem Team wurde eine*e neue*r Fahrer*in hinzugefügt.\n\n";
+        $manager_message .= "Fahrerdetails:\n{riderdetails}";
+        $manager_message = str_replace('{riderdetails}', $rider_details, $manager_message);
+        meldetool_send_team_mail($manager_email, $teamname, $subject, $manager_message, $team_id);
+        $sent_any = true;
     }
 
-    foreach ($targets as $target_email) {
-        meldetool_send_team_mail($target_email, $teamname, $subject, $message, $team_id);
-    }
-
-    if (!empty($targets)) {
+    if ($sent_any) {
         update_post_meta($rider_id, $details_sent_meta, 1);
     }
 }
