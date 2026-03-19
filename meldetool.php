@@ -64,20 +64,21 @@ add_action('wp_footer', function() {
             return isNaN(parsed) ? 0 : parsed;
         }
 
+        // Pods renders row wrappers as: <div class="pods-form-ui-row pods-form-ui-row-name-{field}">
+        // Inputs get id="pods-form-ui-{field}" and name="{field}"
         function findFieldWrap(fieldName) {
-            return document.querySelector('.pods-form-ui-field-name-' + fieldName)
-                || document.querySelector('[data-name="' + fieldName + '"]')
-                || document.querySelector('[class*="pods-field-' + fieldName + '"]');
+            return document.querySelector('.pods-form-ui-row-name-' + fieldName)
+                || document.querySelector('.pods-form-ui-field-name-' + fieldName);
         }
 
         function findFieldInput(fieldName) {
-            return document.querySelector('input[name="' + fieldName + '"]')
-                || document.querySelector('input[name$="[' + fieldName + ']"]')
-                || document.querySelector('.pods-form-ui-field-name-' + fieldName + ' input');
+            return document.getElementById('pods-form-ui-' + fieldName)
+                || document.querySelector('input[name="' + fieldName + '"]')
+                || document.querySelector('input[name$="[' + fieldName + ']"]');
         }
 
         function findTeamSelect() {
-            return document.querySelector('.pods-form-ui-field-name-team select')
+            return document.getElementById('pods-form-ui-team')
                 || document.querySelector('select[name="team"]')
                 || document.querySelector('select[name$="[team]"]');
         }
@@ -115,6 +116,7 @@ add_action('wp_footer', function() {
             if (!teamSelect) {
                 return false;
             }
+            console.log('[meldetool] team select found:', teamSelect, 'optional IDs:', optionalTeamIds);
             applyVisibility();
             teamSelect.addEventListener('change', applyVisibility);
             return true;
@@ -125,6 +127,9 @@ add_action('wp_footer', function() {
             var timer = setInterval(function() {
                 tries++;
                 if (boot() || tries > 20) {
+                    if (tries > 20) {
+                        console.warn('[meldetool] team select not found after ' + tries + ' attempts.');
+                    }
                     clearInterval(timer);
                 }
             }, 250);
