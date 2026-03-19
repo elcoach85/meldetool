@@ -67,6 +67,10 @@ function meldetool_get_team_details_text($team_id, $teamname = '') {
 
 function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_id = 0) {
     $opts = get_option('meldetool_options', array());
+    $from_name = 'Race Days Orga-Team';
+    $from_email = (!empty($opts['from_email']) && is_email($opts['from_email']))
+        ? $opts['from_email']
+        : get_option('admin_email');
     $team_details = meldetool_get_team_details_text((int) $team_id, $teamname);
     $has_teamdetails_placeholder = (strpos($message, '{teamdetails}') !== false);
     $message = str_replace(
@@ -79,8 +83,8 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
     }
 
     $headers = array('Content-Type: text/plain; charset=UTF-8');
-    if (!empty($opts['from_email']) && is_email($opts['from_email'])) {
-        $headers[] = 'From: ' . $opts['from_email'];
+    if (!empty($from_email) && is_email($from_email)) {
+        $headers[] = 'From: ' . $from_name . ' <' . $from_email . '>';
     }
     if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
         $headers[] = 'Reply-To: ' . $opts['reply_to'];
@@ -157,6 +161,10 @@ function meldetool_get_rider_details_text($rider_id) {
 
 function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_name, $teamname, $confirm_url) {
     $opts = get_option('meldetool_options', array());
+    $from_name = 'Race Days Orga-Team';
+    $from_email = (!empty($opts['from_email']) && is_email($opts['from_email']))
+        ? $opts['from_email']
+        : get_option('admin_email');
     $defaults = function_exists('meldetool_default_mail_texts') ? meldetool_default_mail_texts() : array();
 
     $subject = !empty($opts['rider_confirmation_subject'])
@@ -174,8 +182,8 @@ function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_
     );
 
     $headers = array('Content-Type: text/plain; charset=UTF-8');
-    if (!empty($opts['from_email']) && is_email($opts['from_email'])) {
-        $headers[] = 'From: ' . $opts['from_email'];
+    if (!empty($from_email) && is_email($from_email)) {
+        $headers[] = 'From: ' . $from_name . ' <' . $from_email . '>';
     }
     if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
         $headers[] = 'Reply-To: ' . $opts['reply_to'];
