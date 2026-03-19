@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Meldetool
  * Description: A solution to let team managers create their team and add participants to the teams.
- * Version: 0.1.0
+ * Version: 0.2.0
  * Plugin URI: https://the-race-days-stuttgart.org
  * Author: Nino Häberlen
  * Author URI: https://the-race-days-stuttgart.org
@@ -21,6 +21,117 @@ defined( 'MELDETOOL_PLUGIN_DIR' ) || define( 'MELDETOOL_PLUGIN_DIR', plugin_dir_
 add_action('init', function() {
     register_taxonomy_for_object_type('kategorie', 'fahrer');
     register_taxonomy_for_object_type('rennklasse', 'team');
+});
+
+function meldetool_get_license_optional_team_ids() {
+    $team_ids = array();
+    $teams = get_posts(array(
+        'post_type' => 'team',
+        'post_status' => 'any',
+        'numberposts' => -1,
+        'fields' => 'ids',
+    ));
+
+    foreach ($teams as $team_id) {
+        $title = (string) get_the_title((int) $team_id);
+        if (stripos($title, 'Hobby') === 0) {
+            $team_ids[] = (int) $team_id;
+        }
+    }
+
+    return $team_ids;
+}
+
+add_action('wp_footer', function() {
+    if (is_admin()) {
+        return;
+    }
+
+    $optional_team_ids = meldetool_get_license_optional_team_ids();
+    if (empty($optional_team_ids)) {
+        return;
+    }
+    ?>
+    <script>
+    (function() {
+        var optionalTeamIds = <?php echo wp_json_encode(array_values($optional_team_ids)); ?>;
+        if (!Array.isArray(optionalTeamIds) || optionalTeamIds.length === 0) {
+            return;
+        }
+
+        function asInt(value) {
+            var parsed = parseInt(value, 10);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+
+        function findFieldWrap(fieldName) {
+            return document.querySelector('.pods-form-ui-field-name-' + fieldName)
+                || document.querySelector('[data-name="' + fieldName + '"]')
+                || document.querySelector('[class*="pods-field-' + fieldName + '"]');
+        }
+
+        function findFieldInput(fieldName) {
+            return document.querySelector('input[name="' + fieldName + '"]')
+                || document.querySelector('input[name$="[' + fieldName + ']"]')
+                || document.querySelector('.pods-form-ui-field-name-' + fieldName + ' input');
+        }
+
+        function findTeamSelect() {
+            return document.querySelector('.pods-form-ui-field-name-team select')
+                || document.querySelector('select[name="team"]')
+                || document.querySelector('select[name$="[team]"]');
+        }
+
+        function applyVisibility() {
+            var teamSelect = findTeamSelect();
+            if (!teamSelect) {
+                return;
+            }
+
+            var selectedTeamId = asInt(teamSelect.value);
+            var isOptional = optionalTeamIds.indexOf(selectedTeamId) !== -1;
+
+            ['lizenznummer', 'uci_id'].forEach(function(fieldName) {
+                var wrap = findFieldWrap(fieldName);
+                var input = findFieldInput(fieldName);
+                if (!wrap || !input) {
+                    return;
+                }
+
+                wrap.style.display = isOptional ? 'none' : '';
+                input.required = !isOptional;
+
+                if (isOptional && !input.value) {
+                    input.value = 'nicht erforderlich';
+                }
+                if (!isOptional && input.value === 'nicht erforderlich') {
+                    input.value = '';
+                }
+            });
+        }
+
+        function boot() {
+            var teamSelect = findTeamSelect();
+            if (!teamSelect) {
+                return false;
+            }
+            applyVisibility();
+            teamSelect.addEventListener('change', applyVisibility);
+            return true;
+        }
+
+        if (!boot()) {
+            var tries = 0;
+            var timer = setInterval(function() {
+                tries++;
+                if (boot() || tries > 20) {
+                    clearInterval(timer);
+                }
+            }, 250);
+        }
+    })();
+    </script>
+    <?php
 });
 
 /**
