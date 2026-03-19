@@ -42,6 +42,7 @@ register_activation_hook($meldetool_main_file, function() {
         'Männer U23',
         'Schüler U15',
         'Schülerinnen U15',
+        'Hobby',
     );
     foreach ($kategorien as $kategorie) {
         if (!term_exists($kategorie, 'kategorie')) {
