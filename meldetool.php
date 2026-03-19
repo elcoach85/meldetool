@@ -144,7 +144,7 @@ add_action('wp_footer', function() {
             });
             var teamSelect = findTeamSelect();
             var riderForm = teamSelect ? (teamSelect.closest('form') || document) : document;
-            ['lizenznummer', 'uci_id', 'iban', 'bic', 'kontoinhaber'].forEach(function(fieldName) {
+            ['lizenznummer', 'uci_id', 'iban', 'bic', 'kontoinhaber', 'ist_kapitaen'].forEach(function(fieldName) {
                 var wrap = findFieldWrap(fieldName, riderForm);
                 var input = findFieldInput(fieldName, riderForm);
                 console.log('[meldetool] field "' + fieldName + '": wrap=', wrap, 'input=', input);
@@ -188,6 +188,17 @@ add_action('wp_footer', function() {
                 }
 
                 wrap.style.display = isEinzelstarter ? '' : 'none';
+                input.required = false;
+            });
+
+            ['ist_kapitaen'].forEach(function(fieldName) {
+                var wrap = findFieldWrap(fieldName, riderForm);
+                var input = findFieldInput(fieldName, riderForm);
+                if (!wrap || !input) {
+                    return;
+                }
+
+                wrap.style.display = (isOptional || isEinzelstarter) ? 'none' : '';
                 input.required = false;
             });
         }
