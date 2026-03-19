@@ -410,19 +410,31 @@ add_action('save_post_team', function($post_id, $post, $update) {
         }
     }
 	
-	// Dieser Teil soll bei jedem Update eines Teams ausgeführt werden.
-	//TODO: Mail mit Teamdetails befüllen
-	$email = get_post_meta($post_id, 'email_manager', true);
-    file_put_contents($testlog, date('Y-m-d H:i:s') . " | save_post_team | email: $email | teamname: " . get_post_meta($post_id, 'teamname', true) . "\n", FILE_APPEND);
-    if (!empty($email) && is_email($email)) {
-        $opts = get_option('meldetool_options', array());
-        $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
-        if ($enabled) {
-            $subject = !empty($opts['confirmation_subject_publish']) ? $opts['confirmation_subject_publish'] : '';
-            $message = !empty($opts['confirmation_message_publish']) ? $opts['confirmation_message_publish'] : '';
-            meldetool_send_team_mail($email, $teamname, $subject, $message, $post_id);
-        }
-    }
+}, 10, 3);
+
+/**
+ * "Team offiziell gemeldet"-Mail: einmalig senden, sobald das Team auf 'publish' steht.
+ * wp_after_insert_post feuert erst nach dem vollständigen Save inkl. aller Meta-Daten.
+ */
+add_action('wp_after_insert_post', function($post_id, $post, $update) {
+    if ($post->post_type !== 'team') return;
+    if ($post->post_status !== 'publish') return;
+
+    $mail_sent_meta = '_meldetool_publish_mail_sent';
+    if (get_post_meta($post_id, $mail_sent_meta, true)) return;
+
+    $email = get_post_meta($post_id, 'email_manager', true);
+    if (empty($email) || !is_email($email)) return;
+
+    $opts = get_option('meldetool_options', array());
+    $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
+    if (!$enabled) return;
+
+    $teamname = get_post_meta($post_id, 'teamname', true) ?: $post->post_title;
+    $subject = !empty($opts['confirmation_subject_publish']) ? $opts['confirmation_subject_publish'] : '';
+    $message = !empty($opts['confirmation_message_publish']) ? $opts['confirmation_message_publish'] : '';
+    meldetool_send_team_mail($email, $teamname, $subject, $message, $post_id);
+    update_post_meta($post_id, $mail_sent_meta, 1);
 }, 10, 3);
 
 /**
