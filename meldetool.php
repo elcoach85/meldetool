@@ -43,9 +43,6 @@ function meldetool_get_license_optional_team_ids() {
 }
 
 add_action('wp_footer', function() {
-    if (is_admin()) {
-        return;
-    }
 
     $optional_team_ids = meldetool_get_license_optional_team_ids();
     // Debug: zeigt im HTML-Source welche Teams PHP gefunden hat
@@ -81,9 +78,26 @@ add_action('wp_footer', function() {
         }
 
         function findTeamSelect() {
-            return document.getElementById('pods-form-ui-team')
+            // try common Pods patterns first
+            var el = document.getElementById('pods-form-ui-team')
                 || document.querySelector('select[name="team"]')
-                || document.querySelector('select[name$="[team]"]');
+                || document.querySelector('select[name$="[team]"]')
+                || document.querySelector('select[id*="team"]')
+                || document.querySelector('select[name*="team"]');
+            return el;
+        }
+
+        function logAllSelects() {
+            var selects = document.querySelectorAll('select');
+            console.log('[meldetool] all <select> elements found (' + selects.length + '):');
+            selects.forEach(function(s) {
+                console.log('  id="' + s.id + '" name="' + s.name + '" class="' + s.className + '"');
+            });
+            var inputs = document.querySelectorAll('input[type="hidden"][name*="team"], input[name*="team"]');
+            console.log('[meldetool] team-related inputs (' + inputs.length + '):');
+            inputs.forEach(function(i) {
+                console.log('  id="' + i.id + '" name="' + i.name + '" type="' + i.type + '" value="' + i.value + '"');
+            });
         }
 
         function applyVisibility() {
@@ -132,6 +146,7 @@ add_action('wp_footer', function() {
                 if (boot() || tries > 20) {
                     if (tries > 20) {
                         console.warn('[meldetool] team select not found after ' + tries + ' attempts.');
+                        logAllSelects();
                     }
                     clearInterval(timer);
                 }
