@@ -9,13 +9,13 @@ function meldetool_is_logging_enabled() {
 function meldetool_default_mail_texts() {
     return array(
         'confirmation_subject' => '[Race Days] Teammeldung erhalten',
-        'confirmation_message' => "Hallo {teammanager},\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden. Sobald das Team offiziell angemeldet ist, werden Sie von uns benachrichtigt.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
+        'confirmation_message' => "Hallo {teammanager},\n\nIhr Team '{teamname}' wurde erfolgreich an den Veranstalter übermittelt.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden. Sobald das Team offiziell angemeldet ist, werden Sie von uns benachrichtigt.\n\nMit freundlichen Grüßen\nIhr Race Days-Team",
         'confirmation_subject_publish' => '[Race Days] Team gemeldet',
-        'confirmation_message_publish' => "Hallo {teammanager},\n\nIhr Team '{teamname}' ist nun offiziell für die Race Days Stuttgart angemeldet.\n\nSie können nun Fahrer hinzufügen.\n\nMit freundlichen Grüßen\nIhr Racedays-Team",
+        'confirmation_message_publish' => "Hallo {teammanager},\n\nIhr Team '{teamname}' ist nun offiziell für die Race Days Stuttgart angemeldet.\n\nSie können nun Fahrer hinzufügen.\n\nMit freundlichen Grüßen\nIhr Race Days-Team",
         'rider_confirmation_subject' => '[Race Days] Bitte E-Mail-Adresse bestätigen',
-        'rider_confirmation_message' => "Hallo {ridername},\n\nvielen Dank für deine Anmeldung im Team '{teamname}'.\n\nBitte bestätige deine E-Mail-Adresse über folgenden Link:\n{confirm_url}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
+        'rider_confirmation_message' => "Hallo {ridername},\n\nvielen Dank für deine Anmeldung im Team '{teamname}'.\n\nBitte bestätige deine E-Mail-Adresse über folgenden Link:\n{confirm_url}\n\nMit freundlichen Grüßen\nDein Race Days-Team",
         'rider_details_subject' => '[Race Days] Fahrerdetails bestätigt',
-        'rider_details_message' => "Hallo {ridername},\n\ndie E-Mail-Adresse für Fahrer*in {ridername} (Team: {teamname}) wurde bestätigt und der/die Fahrer*in wurde gemeldet.\n\nFahrerdetails:\n{riderdetails}\n\nMit freundlichen Grüßen\nDein Racedays-Team",
+        'rider_details_message' => "Hallo {ridername},\n\ndeine E-Mail-Adresse wurde bestätigt und du bist nun für das Team {teamname} gemeldet.\n\nBitte vergewissere dich, dass alle Daten korrekt sind:\n{riderdetails}\n\nMit sportlichen Grüßen\nDein Race Days-Team",
     );
 }
 
