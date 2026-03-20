@@ -447,6 +447,10 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
         }
     }
     
+    // HTML-Entitäten dekodieren (z.B. &#8211; → –), da E-Mail als Plain Text versendet wird
+    $subject = html_entity_decode($subject, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $message = html_entity_decode($message, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
     // E-Mail versenden
     $mail_result = wp_mail($email, $subject, $message, $headers);
     
