@@ -270,7 +270,7 @@ add_action('wp_footer', function() {
                     return;
                 }
 
-                wrap.style.display = isEinzelstarter ? '' : 'none';
+                wrap.style.display = (isEinzelstarter && !isOptional) ? '' : 'none';
                 input.required = false;
             });
 
