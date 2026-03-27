@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Meldetool
  * Description: A solution to let team managers create their team and add participants to the teams.
- * Version: 0.2.0
+ * Version: 0.3.0
  * Plugin URI: https://the-race-days-stuttgart.org
  * Author: Nino Häberlen
  * Author URI: https://the-race-days-stuttgart.org
@@ -1617,5 +1617,6 @@ function sync_relationship_field_with_taxonomy($post_id) {
  * Zusätzliche Plugin-Module laden
  */
 require_once MELDETOOL_PLUGIN_DIR . 'export_rider_list.php'; // CSV-Export Funktionalität
+require_once MELDETOOL_PLUGIN_DIR . 'backup_tools.php';     // Vollbackup Export/Import
 require_once MELDETOOL_PLUGIN_DIR . 'install.php';          // Installation & Aktivierung
 require_once MELDETOOL_PLUGIN_DIR . 'settings.php';         // Admin-Einstellungen Seite
