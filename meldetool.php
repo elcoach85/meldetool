@@ -207,6 +207,150 @@ add_action('wp_footer', function() {
         }
 
         /**
+         * Findet ein Formular in der Naehe einer Ueberschrift mit bestimmtem Text
+         * (z.B. "Anmeldung Teams" oder "Anmeldung Fahrer").
+         */
+        function findFormNearHeading(headingText) {
+            var normalizedNeedle = String(headingText || '').toLowerCase().trim();
+            if (!normalizedNeedle) {
+                return null;
+            }
+
+            var headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            for (var i = 0; i < headings.length; i++) {
+                var heading = headings[i];
+                var normalizedHeading = String(heading.textContent || '').toLowerCase().trim();
+                if (normalizedHeading.indexOf(normalizedNeedle) === -1) {
+                    continue;
+                }
+
+                var node = heading.nextElementSibling;
+                var maxSteps = 12;
+                while (node && maxSteps > 0) {
+                    if (node.tagName && node.tagName.toLowerCase() === 'form') {
+                        return node;
+                    }
+                    var nestedForm = node.querySelector ? node.querySelector('form') : null;
+                    if (nestedForm) {
+                        return nestedForm;
+                    }
+                    node = node.nextElementSibling;
+                    maxSteps--;
+                }
+            }
+
+            return null;
+        }
+
+        /**
+         * Fallback: Findet ein Formular anhand typischer Feldselektoren.
+         */
+        function findFormByFieldSelectors(selectors) {
+            var forms = document.querySelectorAll('form');
+            for (var i = 0; i < forms.length; i++) {
+                var form = forms[i];
+                for (var j = 0; j < selectors.length; j++) {
+                    if (form.querySelector(selectors[j])) {
+                        return form;
+                    }
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Erstellt Buttons zur Auswahl zwischen Team- und Fahrermeldung.
+         */
+        function initFrontendFormSwitcher() {
+            if (document.getElementById('meldetool-form-switcher')) {
+                return true;
+            }
+
+            var teamForm = findFormNearHeading('Anmeldung Teams')
+                || findFormByFieldSelectors([
+                    'input[name="pods_field_teamname"]',
+                    'input[name="teamname"]',
+                    'input[name="pods_field_email_manager"]',
+                    'input[name="email_manager"]'
+                ]);
+
+            var riderForm = findFormNearHeading('Anmeldung Fahrer*innen')
+                || findFormByFieldSelectors([
+                    'input[name="pods_field_vorname"]',
+                    'input[name="vorname"]',
+                    'select[name="pods_field_team"]',
+                    'select[name="team"]'
+                ]);
+
+            if (!teamForm || !riderForm || teamForm === riderForm) {
+                return false;
+            }
+
+            var switcher = document.createElement('div');
+            switcher.id = 'meldetool-form-switcher';
+            switcher.style.display = 'flex';
+            switcher.style.flexWrap = 'wrap';
+            switcher.style.gap = '10px';
+            switcher.style.margin = '0 0 16px 0';
+
+            var teamButton = document.createElement('button');
+            teamButton.type = 'button';
+            teamButton.textContent = 'Anmeldung Teams';
+
+            var riderButton = document.createElement('button');
+            riderButton.type = 'button';
+            riderButton.textContent = 'Anmeldung Fahrer';
+
+            [teamButton, riderButton].forEach(function(btn) {
+                btn.style.border = '1px solid #1f2937';
+                btn.style.background = '#ffffff';
+                btn.style.color = '#111827';
+                btn.style.padding = '10px 16px';
+                btn.style.borderRadius = '6px';
+                btn.style.cursor = 'pointer';
+                btn.style.fontWeight = '600';
+            });
+
+            function setMode(mode) {
+                var showTeam = (mode === 'team');
+                teamForm.style.display = showTeam ? '' : 'none';
+                riderForm.style.display = showTeam ? 'none' : '';
+
+                teamButton.style.background = showTeam ? '#1f2937' : '#ffffff';
+                teamButton.style.color = showTeam ? '#ffffff' : '#111827';
+                riderButton.style.background = showTeam ? '#ffffff' : '#1f2937';
+                riderButton.style.color = showTeam ? '#111827' : '#ffffff';
+
+                teamButton.setAttribute('aria-pressed', showTeam ? 'true' : 'false');
+                riderButton.setAttribute('aria-pressed', showTeam ? 'false' : 'true');
+
+                if (!showTeam) {
+                    applyVisibility();
+                }
+            }
+
+            teamButton.addEventListener('click', function() {
+                setMode('team');
+            });
+            riderButton.addEventListener('click', function() {
+                setMode('rider');
+            });
+
+            switcher.appendChild(teamButton);
+            switcher.appendChild(riderButton);
+
+            var anchorForm = teamForm;
+            if (teamForm.compareDocumentPosition(riderForm) & Node.DOCUMENT_POSITION_PRECEDING) {
+                anchorForm = riderForm;
+            }
+            anchorForm.parentNode.insertBefore(switcher, anchorForm);
+
+            setMode('team');
+            meldLog('[meldetool] frontend form switcher initialized.');
+            return true;
+        }
+
+        /**
          * Debug-Funktion: Loggt alle Select-Elemente und Feldstatus im DOM
          * Hilft beim Troubleshooting bei Formularen, die nicht richtig angepasst werden
          */
@@ -300,6 +444,7 @@ add_action('wp_footer', function() {
             if (!teamSelect) {
                 return false;
             }
+            initFrontendFormSwitcher();
             meldLog('[meldetool] team select found, optional IDs: ' + JSON.stringify(optionalTeamIds));
             logAllSelects();
             applyVisibility();
