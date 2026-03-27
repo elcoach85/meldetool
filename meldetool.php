@@ -506,7 +506,7 @@ add_action('wp_footer', function() {
                 wrapper.id = wrapperId;
                 wrapper.style.marginBottom = '16px';
                 wrapper.style.padding = '12px';
-                wrapper.style.backgroundColor = '#f5f5f5';
+                wrapper.style.backgroundColor = '#fff8e6';
                 wrapper.style.borderLeft = '4px solid #ff9800';
                 wrapper.style.borderRadius = '4px';
 
@@ -527,6 +527,7 @@ add_action('wp_footer', function() {
                 var labelText = document.createElement('span');
                 labelText.style.fontSize = '14px';
                 labelText.style.lineHeight = '1.5';
+                labelText.style.color = '#1f2937';
 
                 var siteUrl = window.location.origin;
                 var liabilityUrl = siteUrl + '/haftungsausschluss-hobby-rennen/';
