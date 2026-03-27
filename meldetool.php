@@ -625,6 +625,8 @@ add_action('wp_footer', function() {
             ensureLiabilityCheckbox(riderForm, isOptional);
         }
 
+        var bootCompleted = false;
+
         /**
          * Initialisiert die Feldanzeige-Logik
          * 
@@ -636,6 +638,10 @@ add_action('wp_footer', function() {
          * @return {boolean} true wenn erfolgreich initialisiert, false wenn Team-Select nicht gefunden
          */
         function boot() {
+            if (bootCompleted) {
+                return true;
+            }
+
             initFrontendFormSwitcher();
 
             var teamSelect = findTeamSelect();
@@ -671,27 +677,46 @@ add_action('wp_footer', function() {
                 });
             }
 
+            bootCompleted = true;
             return true;
         }
 
-        /**
-         * Versucht Boot mit Retry-Mechanik
-         * Notwendig da Pods-Formular asynchron geladen werden kann (z.B. in Modals)
-         * Versucht alle 250ms, bis zu 80 mal (= 20 Sekunden Wartezeit)
-         */
-        if (!boot()) {
-            var tries = 0;
-            var timer = setInterval(function() {
-                tries++;
-                if (boot() || tries > 80) {
-                    if (tries > 80) {
-                        meldLog('[meldetool] WARNING: team select not found after ' + tries + ' attempts.');
-                        logAllSelects();
-                    }
-                    clearInterval(timer);
-                }
-            }, 250);
+        function tryBoot() {
+            boot();
         }
+
+        // Sofort versuchen
+        tryBoot();
+
+        // Nach spaeteren Lifecycle-Events erneut versuchen
+        document.addEventListener('DOMContentLoaded', tryBoot);
+        window.addEventListener('load', tryBoot);
+
+        // Beobachte asynchron nachgeladene DOM-Elemente (Caching/Optimierung/Builder)
+        var bootObserver = new MutationObserver(function() {
+            if (bootCompleted) {
+                return;
+            }
+            tryBoot();
+        });
+        if (document.body) {
+            bootObserver.observe(document.body, { childList: true, subtree: true });
+        }
+
+        // Zusätzlicher Polling-Fallback mit laengerem Fenster
+        var tries = 0;
+        var timer = setInterval(function() {
+            tries++;
+            tryBoot();
+            if (bootCompleted || tries > 240) {
+                if (!bootCompleted && tries > 240) {
+                    meldLog('[meldetool] WARNING: team select not found after ' + tries + ' attempts.');
+                    logAllSelects();
+                }
+                clearInterval(timer);
+                bootObserver.disconnect();
+            }
+        }, 250);
     })();
     </script>
     <?php
