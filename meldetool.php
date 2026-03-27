@@ -977,6 +977,10 @@ function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_
         $headers[] = 'Reply-To: ' . $opts['reply_to'];
     }
 
+    // HTML-Entitaeten dekodieren, da Mail als Plain Text versendet wird
+    $subject = html_entity_decode($subject, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $message = html_entity_decode($message, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
     $mail_result = wp_mail($rider_email, $subject, $message, $headers);
 
     $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
