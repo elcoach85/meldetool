@@ -418,13 +418,87 @@ add_action('wp_footer', function() {
         }
 
         /**
+         * Erstellt oder verwaltet die Haftungsausschluss-Checkbox fuer Hobbyteams.
+         * 
+         * Bei Hobbyteams muss der Fahrer den Haftungsausschluss akzeptieren.
+         * Die Checkbox wird direkt vor dem Submit-Button eingefuegt.
+         * 
+         * @param {Element} riderForm - Das Fahrerformular
+         * @param {boolean} isHobbyTeam - Ob es sich um ein Hobbyteam handelt
+         */
+        function ensureLiabilityCheckbox(riderForm, isHobbyTeam) {
+            var checkboxId = 'meldetool_hobby_liability_checkbox';
+            var existingCheckbox = riderForm.querySelector('#' + checkboxId);
+
+            if (isHobbyTeam) {
+                if (existingCheckbox) {
+                    existingCheckbox.style.display = '';
+                    return;
+                }
+
+                var submitButton = riderForm.querySelector('button[type="submit"]');
+                if (!submitButton) {
+                    return;
+                }
+
+                var wrapper = document.createElement('div');
+                wrapper.id = 'meldetool-liability-wrapper';
+                wrapper.style.marginBottom = '16px';
+                wrapper.style.padding = '12px';
+                wrapper.style.backgroundColor = '#f5f5f5';
+                wrapper.style.borderLeft = '4px solid #ff9800';
+                wrapper.style.borderRadius = '4px';
+
+                var label = document.createElement('label');
+                label.style.display = 'flex';
+                label.style.alignItems = 'flex-start';
+                label.style.gap = '8px';
+                label.style.cursor = 'pointer';
+
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = checkboxId;
+                checkbox.name = checkboxId;
+                checkbox.style.marginTop = '4px';
+                checkbox.style.cursor = 'pointer';
+                checkbox.required = true;
+
+                var labelText = document.createElement('span');
+                labelText.style.fontSize = '14px';
+                labelText.style.lineHeight = '1.5';
+
+                var siteUrl = window.location.origin;
+                var liabilityUrl = siteUrl + '/haftungsausschluss-hobby-rennen/';
+
+                labelText.innerHTML = 'Ich habe die <a href="' + liabilityUrl + '" target="_blank" style="color: #4a006d; text-decoration: underline;">Teilnahmebedingungen und den Haftungsausschluss</a> gelesen und akzeptiert.';
+
+                label.appendChild(checkbox);
+                label.appendChild(labelText);
+                wrapper.appendChild(label);
+
+                submitButton.parentNode.insertBefore(wrapper, submitButton);
+            } else {
+                if (existingCheckbox) {
+                    existingCheckbox.style.display = 'none';
+                    existingCheckbox.checked = false;
+                    existingCheckbox.required = false;
+                    var parentWrapper = riderForm.querySelector('#meldetool-liability-wrapper');
+                    if (parentWrapper) {
+                        parentWrapper.style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        /**
          * Wendet Feldanzeige-Regeln basierend auf ausgewähltem Team-Typ an
          * 
          * Logik:
          * 1. Bei Hobby-Teams: Lizenznummer/UCI-ID verstecken, Wert auf "n/a" setzen
          * 2. Bei Einzelstarter: IBAN/BIC/Kontoinhaber anzeigen
          * 3. Kapitän-Checkbox nur bei normalen Teams zeigen
-         * 4. Required-Attribute dynamisch aktualisieren
+         * 4. Haftungsausschluss-Checkbox bei Hobby-Teams zeigen
+         * 5. Required-Attribute dynamisch aktualisieren
          */
         function applyVisibility() {
             var teamSelect = findTeamSelect();
@@ -476,6 +550,9 @@ add_action('wp_footer', function() {
                 wrap.style.display = (isOptional || isEinzelstarter) ? 'none' : '';
                 input.required = false;
             });
+
+            // Haftungsausschluss-Checkbox fuer Hobbyteams
+            ensureLiabilityCheckbox(riderForm, isOptional);
         }
 
         /**
@@ -484,6 +561,7 @@ add_action('wp_footer', function() {
          * 1. Sucht Team-Select-Element
          * 2. Wendet Sichtbarkeitsregeln sofort an
          * 3. Registriert Change-Event-Listener
+         * 4. Registriert Form-Submit-Validierung fuer Hobbyteams
          * 
          * @return {boolean} true wenn erfolgreich initialisiert, false wenn Team-Select nicht gefunden
          */
@@ -497,6 +575,28 @@ add_action('wp_footer', function() {
             logAllSelects();
             applyVisibility();
             teamSelect.addEventListener('change', applyVisibility);
+
+            // Registriere Form-Submit-Handler fuer Hobbyteam-Validierung
+            var riderForm = teamSelect.closest('form') || document;
+            var submitButtons = riderForm.querySelectorAll('button[type="submit"], input[type="submit"]');
+            submitButtons.forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    var selectedTeamId = asInt(teamSelect.value);
+                    var isHobbyTeam = optionalTeamIds.indexOf(selectedTeamId) !== -1;
+                    if (isHobbyTeam) {
+                        var checkbox = riderForm.querySelector('#meldetool_hobby_liability_checkbox');
+                        if (!checkbox || !checkbox.checked) {
+                            e.preventDefault();
+                            alert('Bitte akzeptieren Sie die Teilnahmebedingungen und den Haftungsausschluss.');
+                            if (checkbox) {
+                                checkbox.focus();
+                            }
+                            return false;
+                        }
+                    }
+                });
+            });
+
             return true;
         }
 
