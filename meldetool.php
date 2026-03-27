@@ -243,6 +243,45 @@ add_action('wp_footer', function() {
         }
 
         /**
+         * Findet eine Ueberschrift ueber mehrere moegliche Texte.
+         */
+        function findHeadingByTexts(possibleTexts) {
+            var headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            for (var i = 0; i < headings.length; i++) {
+                var heading = headings[i];
+                var normalizedHeading = String(heading.textContent || '').toLowerCase().trim();
+                for (var j = 0; j < possibleTexts.length; j++) {
+                    var needle = String(possibleTexts[j] || '').toLowerCase().trim();
+                    if (needle && normalizedHeading.indexOf(needle) !== -1) {
+                        return heading;
+                    }
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Liefert den im DOM zuerst vorkommenden Knoten aus einer Liste.
+         */
+        function getEarliestNode(nodes) {
+            var validNodes = nodes.filter(function(node) {
+                return !!node;
+            });
+            if (!validNodes.length) {
+                return null;
+            }
+
+            var earliest = validNodes[0];
+            for (var i = 1; i < validNodes.length; i++) {
+                var current = validNodes[i];
+                if (earliest.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_PRECEDING) {
+                    earliest = current;
+                }
+            }
+            return earliest;
+        }
+
+        /**
          * Fallback: Findet ein Formular anhand typischer Feldselektoren.
          */
         function findFormByFieldSelectors(selectors) {
@@ -265,6 +304,9 @@ add_action('wp_footer', function() {
             if (document.getElementById('meldetool-form-switcher')) {
                 return true;
             }
+
+            var teamHeading = findHeadingByTexts(['Anmeldung Teams']);
+            var riderHeading = findHeadingByTexts(['Anmeldung Fahrer*innen', 'Anmeldung Fahrer']);
 
             var teamForm = findFormNearHeading('Anmeldung Teams')
                 || findFormByFieldSelectors([
@@ -313,6 +355,12 @@ add_action('wp_footer', function() {
 
             function setMode(mode) {
                 var showTeam = (mode === 'team');
+                if (teamHeading) {
+                    teamHeading.style.display = showTeam ? '' : 'none';
+                }
+                if (riderHeading) {
+                    riderHeading.style.display = showTeam ? 'none' : '';
+                }
                 teamForm.style.display = showTeam ? '' : 'none';
                 riderForm.style.display = showTeam ? 'none' : '';
 
@@ -339,11 +387,11 @@ add_action('wp_footer', function() {
             switcher.appendChild(teamButton);
             switcher.appendChild(riderButton);
 
-            var anchorForm = teamForm;
-            if (teamForm.compareDocumentPosition(riderForm) & Node.DOCUMENT_POSITION_PRECEDING) {
-                anchorForm = riderForm;
+            var anchorNode = getEarliestNode([teamHeading, riderHeading, teamForm, riderForm]);
+            if (!anchorNode || !anchorNode.parentNode) {
+                return false;
             }
-            anchorForm.parentNode.insertBefore(switcher, anchorForm);
+            anchorNode.parentNode.insertBefore(switcher, anchorNode);
 
             setMode('team');
             meldLog('[meldetool] frontend form switcher initialized.');
