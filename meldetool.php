@@ -346,7 +346,7 @@ add_action('wp_footer', function() {
             [teamButton, riderButton].forEach(function(btn) {
                 btn.style.border = '1px solid #1f2937';
                 btn.style.background = '#ffffff';
-                btn.style.color = '#111827';
+                btn.style.color = '#4a006d';
                 btn.style.padding = '10px 16px';
                 btn.style.borderRadius = '6px';
                 btn.style.cursor = 'pointer';
@@ -364,9 +364,9 @@ add_action('wp_footer', function() {
                 teamForm.style.display = showTeam ? '' : 'none';
                 riderForm.style.display = showTeam ? 'none' : '';
 
-                teamButton.style.background = showTeam ? '#1f2937' : '#ffffff';
+                teamButton.style.background = showTeam ? '#4a006d' : '#ffffff';
                 teamButton.style.color = showTeam ? '#ffffff' : '#4a006d';
-                riderButton.style.background = showTeam ? '#ffffff' : '#1f2937';
+                riderButton.style.background = showTeam ? '#ffffff' : '#4a006d';
                 riderButton.style.color = showTeam ? '#4a006d' : '#ffffff';
 
                 teamButton.setAttribute('aria-pressed', showTeam ? 'true' : 'false');
