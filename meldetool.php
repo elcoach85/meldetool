@@ -434,15 +434,54 @@ add_action('wp_footer', function() {
          */
         function ensureLiabilityCheckbox(riderForm, isHobbyTeam) {
             var checkboxId = 'meldetool_hobby_liability_checkbox';
+            var wrapperId = 'meldetool-liability-wrapper';
             var existingCheckbox = riderForm.querySelector('#' + checkboxId);
+
+            function getSubmitControls() {
+                var candidates = riderForm.querySelectorAll('button[type="submit"], input[type="submit"], .pods-form-ui-submit, a.button, a[role="button"]');
+                if (!candidates || !candidates.length) {
+                    candidates = riderForm.querySelectorAll('button, input[type="button"], input[type="submit"], a.button, a[role="button"]');
+                }
+                return Array.from(candidates);
+            }
+
+            function setSubmitControlsEnabled(enabled) {
+                var controls = getSubmitControls();
+                controls.forEach(function(control) {
+                    if (!control || (control.id === checkboxId) || (control.closest && control.closest('#' + wrapperId))) {
+                        return;
+                    }
+
+                    if (control.tagName && control.tagName.toLowerCase() === 'a') {
+                        control.style.pointerEvents = enabled ? '' : 'none';
+                        control.style.opacity = enabled ? '' : '0.5';
+                        control.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+                    } else {
+                        control.disabled = !enabled;
+                    }
+                });
+            }
+
+            function bindCheckboxSync(checkbox) {
+                if (!checkbox || checkbox.dataset.meldetoolBound === '1') {
+                    return;
+                }
+                checkbox.addEventListener('change', function() {
+                    setSubmitControlsEnabled(checkbox.checked);
+                });
+                checkbox.dataset.meldetoolBound = '1';
+            }
 
             if (isHobbyTeam) {
                 if (existingCheckbox) {
                     existingCheckbox.style.display = '';
-                    var parentWrapper = riderForm.querySelector('#meldetool-liability-wrapper');
+                    existingCheckbox.required = true;
+                    var parentWrapper = riderForm.querySelector('#' + wrapperId);
                     if (parentWrapper) {
                         parentWrapper.style.display = '';
                     }
+                    bindCheckboxSync(existingCheckbox);
+                    setSubmitControlsEnabled(!!existingCheckbox.checked);
                     return;
                 }
 
@@ -458,19 +497,13 @@ add_action('wp_footer', function() {
                     });
 
                 if (!submitButton) {
-                    meldLog('[meldetool] ERROR: submit button not found. Available buttons:');
-                    var allButtons = riderForm.querySelectorAll('button, input[type="submit"], input[type="button"], a.button, a[role="button"]');
-                    for (var i = 0; i < allButtons.length; i++) {
-                        var btn = allButtons[i];
-                        meldLog('  - ' + btn.tagName + '[' + btn.type + '] "' + (btn.textContent || btn.value || '') + '"');
-                    }
-                    return;
+                    meldLog('[meldetool] WARNING: submit button not found, checkbox will be appended to form end.');
+                } else {
+                    meldLog('[meldetool] liability checkbox: submit button found: ' + (submitButton.tagName || 'unknown') + ' / ' + (submitButton.type || 'no type'));
                 }
 
-                meldLog('[meldetool] liability checkbox: submit button found: ' + (submitButton.tagName || 'unknown') + ' / ' + (submitButton.type || 'no type'));
-
                 var wrapper = document.createElement('div');
-                wrapper.id = 'meldetool-liability-wrapper';
+                wrapper.id = wrapperId;
                 wrapper.style.marginBottom = '16px';
                 wrapper.style.padding = '12px';
                 wrapper.style.backgroundColor = '#f5f5f5';
@@ -504,18 +537,25 @@ add_action('wp_footer', function() {
                 label.appendChild(labelText);
                 wrapper.appendChild(label);
 
-                submitButton.parentNode.insertBefore(wrapper, submitButton);
+                if (submitButton && submitButton.parentNode) {
+                    submitButton.parentNode.insertBefore(wrapper, submitButton);
+                } else {
+                    riderForm.appendChild(wrapper);
+                }
+                bindCheckboxSync(checkbox);
+                setSubmitControlsEnabled(false);
                 meldLog('[meldetool] liability checkbox created and inserted');
             } else {
                 if (existingCheckbox) {
                     existingCheckbox.style.display = 'none';
                     existingCheckbox.checked = false;
                     existingCheckbox.required = false;
-                    var parentWrapper = riderForm.querySelector('#meldetool-liability-wrapper');
+                    var parentWrapper = riderForm.querySelector('#' + wrapperId);
                     if (parentWrapper) {
                         parentWrapper.style.display = 'none';
                     }
                 }
+                setSubmitControlsEnabled(true);
             }
         }
 
@@ -596,11 +636,12 @@ add_action('wp_footer', function() {
          * @return {boolean} true wenn erfolgreich initialisiert, false wenn Team-Select nicht gefunden
          */
         function boot() {
+            initFrontendFormSwitcher();
+
             var teamSelect = findTeamSelect();
             if (!teamSelect) {
                 return false;
             }
-            initFrontendFormSwitcher();
             meldLog('[meldetool] team select found, optional IDs: ' + JSON.stringify(optionalTeamIds));
             meldLog('[meldetool] iban/bic IDs: ' + JSON.stringify(ibanBicTeamIds));
             logAllSelects();
@@ -612,27 +653,23 @@ add_action('wp_footer', function() {
 
             // Registriere Form-Submit-Handler fuer Hobbyteam-Validierung
             var riderForm = teamSelect.closest('form') || document;
-            var submitButtons = riderForm.querySelectorAll('button, input[type="submit"], a.button, a[role="button"]');
-            meldLog('[meldetool] found ' + submitButtons.length + ' submit buttons for validation');
-            submitButtons.forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
+            if (riderForm && riderForm.addEventListener) {
+                riderForm.addEventListener('submit', function(e) {
                     var selectedTeamId = asInt(teamSelect.value);
                     var isHobbyTeam = optionalTeamIds.indexOf(selectedTeamId) !== -1;
-                    meldLog('[meldetool] form submit clicked: teamId=' + selectedTeamId + ', isHobbyTeam=' + isHobbyTeam);
-                    if (isHobbyTeam) {
-                        var checkbox = riderForm.querySelector('#meldetool_hobby_liability_checkbox');
-                        meldLog('[meldetool] hobby team validation: checkbox found=' + (!!checkbox) + ', checked=' + (checkbox ? checkbox.checked : 'N/A'));
-                        if (!checkbox || !checkbox.checked) {
-                            e.preventDefault();
-                            alert('Bitte akzeptieren Sie die Teilnahmebedingungen und den Haftungsausschluss.');
-                            if (checkbox) {
-                                checkbox.focus();
-                            }
-                            return false;
+                    if (!isHobbyTeam) {
+                        return;
+                    }
+
+                    var checkbox = riderForm.querySelector('#meldetool_hobby_liability_checkbox');
+                    if (!checkbox || !checkbox.checked) {
+                        e.preventDefault();
+                        if (checkbox) {
+                            checkbox.focus();
                         }
                     }
                 });
-            });
+            }
 
             return true;
         }
@@ -640,14 +677,14 @@ add_action('wp_footer', function() {
         /**
          * Versucht Boot mit Retry-Mechanik
          * Notwendig da Pods-Formular asynchron geladen werden kann (z.B. in Modals)
-         * Versucht alle 250ms, bis zu 20 mal (= 5 Sekunden Wartezeit)
+         * Versucht alle 250ms, bis zu 80 mal (= 20 Sekunden Wartezeit)
          */
         if (!boot()) {
             var tries = 0;
             var timer = setInterval(function() {
                 tries++;
-                if (boot() || tries > 20) {
-                    if (tries > 20) {
+                if (boot() || tries > 80) {
+                    if (tries > 80) {
                         meldLog('[meldetool] WARNING: team select not found after ' + tries + ' attempts.');
                         logAllSelects();
                     }
