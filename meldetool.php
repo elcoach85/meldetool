@@ -116,7 +116,7 @@ add_action('wp_footer', function() {
         // Hilfsfunktion: bedingte `console.log()` basierend auf Logging-Settings
         function meldLog(message) {
             if (loggingEnabled) {
-                console.log(message);
+                console.log('[meldetool] ' + message);
             }
         }
         
@@ -373,7 +373,13 @@ add_action('wp_footer', function() {
                 riderButton.setAttribute('aria-pressed', showTeam ? 'false' : 'true');
 
                 if (!showTeam) {
+                    meldLog('[meldetool] setMode: switching to rider, calling applyVisibility immediately');
                     applyVisibility();
+                    // Retry nach kurzem Delay fuer asynchron geladene Elemente
+                    setTimeout(function() {
+                        meldLog('[meldetool] setMode: retry applyVisibility after delay');
+                        applyVisibility();
+                    }, 100);
                 }
             }
 
@@ -433,13 +439,35 @@ add_action('wp_footer', function() {
             if (isHobbyTeam) {
                 if (existingCheckbox) {
                     existingCheckbox.style.display = '';
+                    var parentWrapper = riderForm.querySelector('#meldetool-liability-wrapper');
+                    if (parentWrapper) {
+                        parentWrapper.style.display = '';
+                    }
                     return;
                 }
 
-                var submitButton = riderForm.querySelector('button[type="submit"]');
+                // Versuche Submit-Button zu finden mit mehreren Fallbacks
+                var submitButton = riderForm.querySelector('button[type="submit"]')
+                    || riderForm.querySelector('input[type="submit"]')
+                    || riderForm.querySelector('.pods-form-ui-submit')
+                    || riderForm.querySelector('[data-test*="submit"]')
+                    || riderForm.querySelector('button.submit, button.btn-primary, button[name*="submit"]')
+                    || Array.from(riderForm.querySelectorAll('button, input[type="button"], a.button, a[role="button"]')).find(function(btn) {
+                        var text = (btn.textContent || btn.value || '').toLowerCase();
+                        return text.indexOf('fahrer') !== -1 || text.indexOf('anmelden') !== -1 || text.indexOf('senden') !== -1 || text.indexOf('submit') !== -1 || text.indexOf('abschicken') !== -1 || text.indexOf('speichern') !== -1;
+                    });
+
                 if (!submitButton) {
+                    meldLog('[meldetool] ERROR: submit button not found. Available buttons:');
+                    var allButtons = riderForm.querySelectorAll('button, input[type="submit"], input[type="button"], a.button, a[role="button"]');
+                    for (var i = 0; i < allButtons.length; i++) {
+                        var btn = allButtons[i];
+                        meldLog('  - ' + btn.tagName + '[' + btn.type + '] "' + (btn.textContent || btn.value || '') + '"');
+                    }
                     return;
                 }
+
+                meldLog('[meldetool] liability checkbox: submit button found: ' + (submitButton.tagName || 'unknown') + ' / ' + (submitButton.type || 'no type'));
 
                 var wrapper = document.createElement('div');
                 wrapper.id = 'meldetool-liability-wrapper';
@@ -477,6 +505,7 @@ add_action('wp_footer', function() {
                 wrapper.appendChild(label);
 
                 submitButton.parentNode.insertBefore(wrapper, submitButton);
+                meldLog('[meldetool] liability checkbox created and inserted');
             } else {
                 if (existingCheckbox) {
                     existingCheckbox.style.display = 'none';
@@ -552,6 +581,7 @@ add_action('wp_footer', function() {
             });
 
             // Haftungsausschluss-Checkbox fuer Hobbyteams
+            meldLog('[meldetool] applyVisibility: teamId=' + selectedTeamId + ', isOptional=' + isOptional + ', calling ensureLiabilityCheckbox');
             ensureLiabilityCheckbox(riderForm, isOptional);
         }
 
@@ -572,19 +602,26 @@ add_action('wp_footer', function() {
             }
             initFrontendFormSwitcher();
             meldLog('[meldetool] team select found, optional IDs: ' + JSON.stringify(optionalTeamIds));
+            meldLog('[meldetool] iban/bic IDs: ' + JSON.stringify(ibanBicTeamIds));
             logAllSelects();
             applyVisibility();
-            teamSelect.addEventListener('change', applyVisibility);
+            teamSelect.addEventListener('change', function() {
+                meldLog('[meldetool] team select change event triggered');
+                applyVisibility();
+            });
 
             // Registriere Form-Submit-Handler fuer Hobbyteam-Validierung
             var riderForm = teamSelect.closest('form') || document;
-            var submitButtons = riderForm.querySelectorAll('button[type="submit"], input[type="submit"]');
+            var submitButtons = riderForm.querySelectorAll('button, input[type="submit"], a.button, a[role="button"]');
+            meldLog('[meldetool] found ' + submitButtons.length + ' submit buttons for validation');
             submitButtons.forEach(function(btn) {
                 btn.addEventListener('click', function(e) {
                     var selectedTeamId = asInt(teamSelect.value);
                     var isHobbyTeam = optionalTeamIds.indexOf(selectedTeamId) !== -1;
+                    meldLog('[meldetool] form submit clicked: teamId=' + selectedTeamId + ', isHobbyTeam=' + isHobbyTeam);
                     if (isHobbyTeam) {
                         var checkbox = riderForm.querySelector('#meldetool_hobby_liability_checkbox');
+                        meldLog('[meldetool] hobby team validation: checkbox found=' + (!!checkbox) + ', checked=' + (checkbox ? checkbox.checked : 'N/A'));
                         if (!checkbox || !checkbox.checked) {
                             e.preventDefault();
                             alert('Bitte akzeptieren Sie die Teilnahmebedingungen und den Haftungsausschluss.');
