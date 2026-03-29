@@ -198,6 +198,31 @@ register_activation_hook($meldetool_main_file, function() {
         );
         add_option('meldetool_options', $defaults);
     }
+
+    // Anmeldungs-Seite anlegen, falls noch nicht vorhanden
+    $existing_page = get_page_by_path('anmeldung');
+    if (!$existing_page) {
+        $page_content  = "<!-- wp:heading -->\n";
+        $page_content .= "<h2 class=\"wp-block-heading\">Anmeldung Teams</h2>\n";
+        $page_content .= "<!-- /wp:heading -->\n\n";
+        $page_content .= "<!-- wp:shortcode -->\n";
+        $page_content .= "[pods-form name=\"team\" fields=\"teamname,team-rennklasse,teammanager,email_manager,iban,bic,kontoinhaber\"]\n";
+        $page_content .= "<!-- /wp:shortcode -->\n\n";
+        $page_content .= "<!-- wp:heading -->\n";
+        $page_content .= "<h2 class=\"wp-block-heading\">Anmeldung Fahrer*innen</h2>\n";
+        $page_content .= "<!-- /wp:heading -->\n\n";
+        $page_content .= "<!-- wp:shortcode -->\n";
+        $page_content .= "[pods-form name=\"fahrer\" fields=\"nachname,vorname,team,fahrer-kategorie,lizenznummer,uci_id,ist_kapitaen,email_rider,nationalitaet,iban,bic,kontoinhaber\"]\n";
+        $page_content .= "<!-- /wp:shortcode -->\n";
+
+        wp_insert_post(array(
+            'post_title'   => 'Anmeldung',
+            'post_name'    => 'anmeldung',
+            'post_status'  => 'publish',
+            'post_type'    => 'page',
+            'post_content' => $page_content,
+        ));
+    }
 });
 
 // Beim Admin-Login nach Aktivierung Hinweis anzeigen, dass Pods-Verbindungen manuell geprüft werden sollen
