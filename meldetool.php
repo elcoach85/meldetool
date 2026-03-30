@@ -1081,6 +1081,11 @@ add_action('pods_api_post_save_pod_item_fahrer', function($data, $pod, $id) {
         return;
     }
 
+    // Post-Titel sofort nach Pods-Save synchronisieren (auch ohne spaetere Admin-Bearbeitung)
+    $vorname_sync = isset($data['vorname']) ? $data['vorname'] : '';
+    $nachname_sync = isset($data['nachname']) ? $data['nachname'] : '';
+    meldetool_sync_rider_post_title($id, $vorname_sync, $nachname_sync);
+
     // Verhindert erneuten Versand von Bestätigungsmails wenn bereits gesendet oder bestätigt
     $confirmation_sent_meta = '_meldetool_rider_confirmation_sent';
     $confirmed_meta = '_meldetool_rider_email_confirmed';
@@ -1127,6 +1132,52 @@ add_action('pods_api_post_save_pod_item_fahrer', function($data, $pod, $id) {
         update_post_meta($id, $confirmation_sent_meta, 1);
     }
 }, 10, 3);
+
+/**
+ * Synchronisiert den Fahrer-Post-Titel mit Nachname + Vorname.
+ *
+ * Wird sowohl von save_post_fahrer als auch direkt nach Pods-Save genutzt,
+ * damit neue Fahrer sofort einen konsistenten Titel erhalten.
+ *
+ * @param int $post_id WordPress Post-ID des Fahrers
+ * @param string $vorname Optionaler Vorname (sonst aus Post Meta)
+ * @param string $nachname Optionaler Nachname (sonst aus Post Meta)
+ */
+function meldetool_sync_rider_post_title($post_id, $vorname = '', $nachname = '') {
+    $post_id = (int) $post_id;
+    if (!$post_id) {
+        return;
+    }
+
+    $post = get_post($post_id);
+    if (!$post || $post->post_type !== 'fahrer') {
+        return;
+    }
+
+    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
+        return;
+    }
+
+    $vorname = (string) ($vorname !== '' ? $vorname : get_post_meta($post_id, 'vorname', true));
+    $nachname = (string) ($nachname !== '' ? $nachname : get_post_meta($post_id, 'nachname', true));
+    $new_title = trim($nachname . ' ' . $vorname);
+    if ($new_title === '' || $new_title === $post->post_title) {
+        return;
+    }
+
+    static $is_updating = array();
+    if (!empty($is_updating[$post_id])) {
+        return;
+    }
+
+    $is_updating[$post_id] = true;
+    wp_update_post(array(
+        'ID'         => $post_id,
+        'post_title' => $new_title,
+        'post_name'  => sanitize_title($new_title),
+    ));
+    unset($is_updating[$post_id]);
+}
 
 /**
  * Verarbeitet Fahrer-E-Mail-Bestätigung (template_redirect)
@@ -1192,6 +1243,10 @@ add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
     // Team-Informationen sammeln (aus Form-Daten oder Meta)
     $teamname = isset($data['teamname']) ? $data['teamname'] : get_post_meta($id, 'teamname', true);
     $email = isset($data['email_manager']) ? $data['email_manager'] : get_post_meta($id, 'email_manager', true);
+
+    // Post-Titel sofort nach Pods-Save synchronisieren (auch ohne spaetere Admin-Bearbeitung)
+    meldetool_sync_team_post_title($id, $teamname);
+
     if (!empty($email) && is_email($email)) {
         $opts = get_option('meldetool_options', array());
         $enabled = isset($opts['send_confirmation']) ? (bool) $opts['send_confirmation'] : true;
@@ -1205,6 +1260,49 @@ add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
 }, 10, 3);
 
 /**
+ * Synchronisiert den Team-Post-Titel mit dem Teamnamen.
+ *
+ * Wird sowohl von save_post_team als auch direkt nach Pods-Save genutzt,
+ * damit neue Teams sofort einen konsistenten Titel erhalten.
+ *
+ * @param int $post_id WordPress Post-ID des Teams
+ * @param string $teamname Optionaler Teamname (sonst aus Post Meta)
+ */
+function meldetool_sync_team_post_title($post_id, $teamname = '') {
+    $post_id = (int) $post_id;
+    if (!$post_id) {
+        return;
+    }
+
+    $post = get_post($post_id);
+    if (!$post || $post->post_type !== 'team') {
+        return;
+    }
+
+    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
+        return;
+    }
+
+    $new_title = trim((string) ($teamname !== '' ? $teamname : get_post_meta($post_id, 'teamname', true)));
+    if ($new_title === '' || $new_title === $post->post_title) {
+        return;
+    }
+
+    static $is_updating = array();
+    if (!empty($is_updating[$post_id])) {
+        return;
+    }
+
+    $is_updating[$post_id] = true;
+    wp_update_post(array(
+        'ID'         => $post_id,
+        'post_title' => $new_title,
+        'post_name'  => sanitize_title($new_title),
+    ));
+    unset($is_updating[$post_id]);
+}
+
+/**
  * Synchronisiert Post-Title mit Teamname (Post Meta)
  * 
  * Macht Teamname in Admin-Liste und überall sichtbar
@@ -1214,35 +1312,8 @@ add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
  * Hook: save_post_team (native WordPress Hook)
  */
 add_action('save_post_team', function($post_id, $post, $update) {
-    // Verhindert Rekursion: wp_update_post() würde diesen Hook erneut aufrufen
-    static $is_updating_team_post = false;
-    if ($is_updating_team_post) {
-        return;
-    }
+    meldetool_sync_team_post_title($post_id);
 
-    // Ignoriert Autosaves und Revisionen
-    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
-        return;
-    }
-
-    // Post-Titel mit Teamname synchronisieren
-    $teamname = get_post_meta($post_id, 'teamname', true);
-    
-    // Teamname kann beim ersten Save leer sein, wird beim Veröffentlichen gefüllt
-    if ($teamname) {
-        $new_title = trim($teamname);
-
-        if ($new_title && $new_title !== $post->post_title) {
-            $is_updating_team_post = true;
-            wp_update_post([
-                'ID'         => $post_id,
-                'post_title' => $new_title,
-                'post_name'  => sanitize_title($new_title),
-            ]);
-            $is_updating_team_post = false;
-        }
-    }
-	
 }, 10, 3);
 
 /**
@@ -1293,25 +1364,7 @@ add_action('wp_after_insert_post', function($post_id, $post, $update) {
  * Hook: save_post_fahrer (native WordPress Hook)
  */
 add_action('save_post_fahrer', function($post_id, $post, $update) {
-    // Ignoriert Autosaves und Revisions
-    if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
-        return;
-    }
-
-    // Post-Titel mit Fahrername synchronisieren
-    $vorname = get_post_meta($post_id, 'vorname', true);
-    $nachname = get_post_meta($post_id, 'nachname', true);
-    if ($vorname || $nachname) {
-        $new_title = trim($nachname . ' ' . $vorname);
-
-        if ($new_title && $new_title !== $post->post_title) {
-            wp_update_post([
-                'ID'         => $post_id,
-                'post_title' => $new_title,
-                'post_name'  => sanitize_title($new_title),
-            ]);
-        }
-    }
+    meldetool_sync_rider_post_title($post_id);
 
 }, 10, 3);
 
