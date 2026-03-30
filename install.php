@@ -2,6 +2,36 @@
 
 $meldetool_main_file = MELDETOOL_PLUGIN_DIR . 'meldetool.php';
 
+/**
+ * Legt fehlende Terms fuer eine Taxonomie an und sammelt Fehler.
+ *
+ * @param string $taxonomy Taxonomie-Slug
+ * @param array $term_names Liste von Term-Namen
+ * @param array $errors Referenz auf Fehlerarray
+ */
+function meldetool_ensure_terms($taxonomy, $term_names, &$errors) {
+    if (!taxonomy_exists($taxonomy)) {
+        $errors[] = 'Taxonomie nicht registriert: ' . $taxonomy;
+        return;
+    }
+
+    foreach ((array) $term_names as $term_name) {
+        if (term_exists($term_name, $taxonomy)) {
+            continue;
+        }
+
+        $inserted = wp_insert_term($term_name, $taxonomy);
+        if (is_wp_error($inserted)) {
+            $errors[] = sprintf(
+                'Term konnte nicht angelegt werden (%s / %s): %s',
+                $taxonomy,
+                $term_name,
+                implode('; ', $inserted->get_error_messages())
+            );
+        }
+    }
+}
+
 // Taxonomien und Terms bei Plugin-Aktivierung mit Pods anlegen
 register_activation_hook($meldetool_main_file, function() {
     if (!function_exists('pods_api')) {
@@ -29,6 +59,17 @@ register_activation_hook($meldetool_main_file, function() {
             $errors = array_merge($errors, $res->get_error_messages());
         }
     }
+
+    // Taxonomien im aktuellen Aktivierungs-Request sicher registrieren,
+    // damit term_exists/wp_insert_term sofort funktionieren.
+    if (!taxonomy_exists('kategorie')) {
+        register_taxonomy('kategorie', array('fahrer'), array(
+            'public' => true,
+            'show_ui' => true,
+            'hierarchical' => false,
+            'rewrite' => false,
+        ));
+    }
         
     // Kategorie-Terms anlegen
     $kategorien = array(
@@ -44,11 +85,7 @@ register_activation_hook($meldetool_main_file, function() {
         'Schülerinnen U15',
         'Hobby',
     );
-    foreach ($kategorien as $kategorie) {
-        if (!term_exists($kategorie, 'kategorie')) {
-            wp_insert_term($kategorie, 'kategorie');
-        }
-    }
+    meldetool_ensure_terms('kategorie', $kategorien, $errors);
 
     // Rennklasse-Taxonomie (Meta Storage)
     if (!pods_api()->load_pod(array('name' => 'rennklasse', 'type' => 'taxonomy'))) {
@@ -68,6 +105,15 @@ register_activation_hook($meldetool_main_file, function() {
         }
     }
 
+    if (!taxonomy_exists('rennklasse')) {
+        register_taxonomy('rennklasse', array('team'), array(
+            'public' => true,
+            'show_ui' => true,
+            'hierarchical' => false,
+            'rewrite' => false,
+        ));
+    }
+
     // Rennklassen-Terms anlegen
     $rennklassen = array(
         'Elite Amateure und Männer U23',
@@ -83,11 +129,7 @@ register_activation_hook($meldetool_main_file, function() {
         'Hobby 1 – Solitude',
         'Hobby 2 – Magstadt',
     );
-    foreach ($rennklassen as $rennklasse) {
-        if (!term_exists($rennklasse, 'rennklasse')) {
-            wp_insert_term($rennklasse, 'rennklasse');
-        }
-    }
+    meldetool_ensure_terms('rennklasse', $rennklassen, $errors);
 
     // Team Pod anlegen
     if (!pods_api()->load_pod(array('name' => 'team', 'type' => 'post_type'))) {
@@ -113,6 +155,8 @@ register_activation_hook($meldetool_main_file, function() {
         if (is_wp_error($res)) {
             $errors = array_merge($errors, $res->get_error_messages());
         }
+    }
+
     // Fahrer Pod anlegen
     if (!pods_api()->load_pod(array('name' => 'fahrer', 'type' => 'post_type'))) {
         $res = pods_api()->save_pod(array(
@@ -162,12 +206,10 @@ register_activation_hook($meldetool_main_file, function() {
             $errors = array_merge($errors, $res->get_error_messages());
         }
     }
-    }
 
-    // Verbindung Taxonomie 'rennklasse' mit Post Type 'team' sicherstellen
-    //register_taxonomy_for_object_type('rennklasse', 'team');
-    // Verbindung Taxonomie 'kategorie' mit Post Type 'fahrer' sicherstellen
-    //register_taxonomy_for_object_type('kategorie', 'fahrer');
+    // Verbindung Taxonomien mit Post Types sicherstellen
+    register_taxonomy_for_object_type('rennklasse', 'team');
+    register_taxonomy_for_object_type('kategorie', 'fahrer');
     
     register_post_type('team', ['taxonomies' => ['rennklasse']]);
     register_post_type('fahrer', ['taxonomies' => ['kategorie']]);
