@@ -88,24 +88,43 @@ function meldetool_get_u17_team_ids() {
         'hide_empty' => false,
         'search'     => 'U17',
     ));
-    if (is_wp_error($u17_terms) || empty($u17_terms)) {
-        return array();
+    $team_ids = array();
+
+    if (!is_wp_error($u17_terms) && !empty($u17_terms)) {
+        $u17_term_ids = wp_list_pluck($u17_terms, 'term_id');
+        $teams = get_posts(array(
+            'post_type'   => 'team',
+            'post_status' => 'any',
+            'numberposts' => -1,
+            'fields'      => 'ids',
+            'tax_query'   => array(
+                array(
+                    'taxonomy' => 'rennklasse',
+                    'field'    => 'term_id',
+                    'terms'    => $u17_term_ids,
+                ),
+            ),
+        ));
+        $team_ids = array_map('intval', (array) $teams);
     }
-    $u17_term_ids = wp_list_pluck($u17_terms, 'term_id');
-    $teams = get_posts(array(
+
+    // Fallback fuer bestehende Datensaetze: einige Teams tragen die U17-Info nur im Titel.
+    $all_team_ids = get_posts(array(
         'post_type'   => 'team',
         'post_status' => 'any',
         'numberposts' => -1,
         'fields'      => 'ids',
-        'tax_query'   => array(
-            array(
-                'taxonomy' => 'rennklasse',
-                'field'    => 'term_id',
-                'terms'    => $u17_term_ids,
-            ),
-        ),
     ));
-    return array_map('intval', (array) $teams);
+
+    foreach ((array) $all_team_ids as $team_id) {
+        $team_id = (int) $team_id;
+        $title = (string) get_the_title($team_id);
+        if (stripos($title, 'U17') !== false) {
+            $team_ids[] = $team_id;
+        }
+    }
+
+    return array_values(array_unique(array_map('intval', $team_ids)));
 }
 
 /**
