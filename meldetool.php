@@ -156,34 +156,6 @@ add_action('wp_footer', function() {
     <?php if ($logging_enabled): ?>
     <!-- meldetool debug: optional_team_ids=<?php echo esc_html(wp_json_encode($optional_team_ids)); ?> all_teams=<?php echo esc_html(wp_json_encode($all_teams_debug)); ?> -->
     <?php endif; ?>
-    <style>
-    .pods-form-ui-row-name-pods-field-etappen_auswahl .pods-field-radio,
-    .pods-form-ui-row-name-pods-field-etappen-auswahl .pods-field-radio,
-    .pods-form-ui-row-name-etappen_auswahl .pods-field-radio,
-    .pods-form-ui-row-name-etappen-auswahl .pods-field-radio,
-    .pods-form-ui-field-name-etappen_auswahl .pods-field-radio,
-    .pods-form-ui-field-name-etappen-auswahl .pods-field-radio,
-    .pods-form-ui-row-name-pods-field-etappen_auswahl .pods-pick-values,
-    .pods-form-ui-row-name-pods-field-etappen-auswahl .pods-pick-values,
-    .pods-form-ui-row-name-etappen_auswahl .pods-pick-values,
-    .pods-form-ui-row-name-etappen-auswahl .pods-pick-values,
-    .pods-form-ui-field-name-etappen_auswahl .pods-pick-values,
-    .pods-form-ui-field-name-etappen-auswahl .pods-pick-values,
-    .pods-form-ui-row-name-pods-field-etappen_auswahl .pods-field-radio *,
-    .pods-form-ui-row-name-pods-field-etappen-auswahl .pods-field-radio *,
-    .pods-form-ui-row-name-etappen_auswahl .pods-field-radio *,
-    .pods-form-ui-row-name-etappen-auswahl .pods-field-radio *,
-    .pods-form-ui-field-name-etappen_auswahl .pods-field-radio *,
-    .pods-form-ui-field-name-etappen-auswahl .pods-field-radio *,
-    .pods-form-ui-row-name-pods-field-etappen_auswahl .pods-pick-values *,
-    .pods-form-ui-row-name-pods-field-etappen-auswahl .pods-pick-values *,
-    .pods-form-ui-row-name-etappen_auswahl .pods-pick-values *,
-    .pods-form-ui-row-name-etappen-auswahl .pods-pick-values *,
-    .pods-form-ui-field-name-etappen_auswahl .pods-pick-values *,
-    .pods-form-ui-field-name-etappen-auswahl .pods-pick-values * {
-        color: #111827 !important;
-    }
-    </style>
     <script>
     /**
      * IIFE (Immediately Invoked Function Expression) für Feldanzeige-Logik
@@ -1723,34 +1695,6 @@ add_filter('manage_edit-fahrer_sortable_columns', function ($columns) {
  * 
  * Hook: admin_notices (Admin Interface Notices)
  */
-// Einmalige Upgrade-Routine: bestehendes etappen_auswahl-Feld auf Radio-Format umstellen
-add_action('admin_init', function() {
-    if (get_option('meldetool_etappen_radio_upgrade_done')) return;
-    if (!function_exists('pods_api')) return;
-    if (!current_user_can('manage_options')) return;
-    try {
-        $api   = pods_api();
-        $field = $api->load_field(array('pod' => 'fahrer', 'name' => 'etappen_auswahl'));
-        if (empty($field) || empty($field['id'])) {
-            update_option('meldetool_etappen_radio_upgrade_done', 1);
-            return;
-        }
-        $field['pick_format_type']              = 'single';
-        $field['pick_format_single']            = 'radio';
-        $field['options']['pick_format_type']   = 'single';
-        $field['options']['pick_format_single'] = 'radio';
-        $result = $api->save_field($field);
-        if (!is_wp_error($result)) {
-            update_option('meldetool_etappen_radio_upgrade_done', 1);
-            if (method_exists($api, 'cache_flush_pods')) {
-                $api->cache_flush_pods();
-            }
-        }
-    } catch (\Exception $e) {
-        // Silently ignore – Pods nicht bereit
-    }
-});
-
 add_action('admin_notices', function () {
     if (!is_admin()) return;
 
