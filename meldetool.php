@@ -1473,6 +1473,7 @@ add_filter('manage_fahrer_posts_columns', function($columns) {
     $columns['team'] = 'Team';
 	$columns['rennklasse'] = 'Rennklasse';
 	$columns['kategorie'] = 'Kategorie';
+    $columns['etappen_auswahl'] = 'Etappe(n)';
     $columns['lizenznummer'] = 'Lizenznummer';
     $columns['uci_id'] = 'UCI-ID';
 	
@@ -1511,9 +1512,11 @@ add_action('manage_fahrer_posts_custom_column', function($column, $post_id) {
         case 'nachname':
         case 'uci_id':
         case 'lizenznummer':
+		case 'etappen_auswahl':
 		#case 'kategorie':
 		#case 'rennklasse':
-            echo esc_html(get_post_meta($post_id, $column, true));
+            $value = get_post_meta($post_id, $column, true);
+            echo ($value !== '' && $value !== null) ? esc_html($value) : '—';
             break;
 
         case 'team': # 'team' ist post_meta
