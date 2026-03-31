@@ -198,6 +198,18 @@ register_activation_hook($meldetool_main_file, function() {
                 array('name' => 'iban', 'label' => 'IBAN (nur Einzelstarter)', 'type' => 'text'),
                 array('name' => 'bic', 'label' => 'BIC (nur Einzelstarter)', 'type' => 'text'),
                 array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (nur Einzelstarter)', 'type' => 'text'),
+                array(
+                    'name'             => 'etappen_auswahl',
+                    'label'            => 'Etappenauswahl (nur U17)',
+                    'type'             => 'pick',
+                    'pick_format_type' => 'radio',
+                    'data'             => array(
+                        'Etappe 1'   => 'Etappe 1',
+                        'Etappe 2-4' => 'Etappe 2-4',
+                        'Etappe 1-4' => 'Etappe 1-4',
+                    ),
+                    'required'         => false,
+                ),
             ),
         ));
         if (is_wp_error($res)) {
@@ -252,7 +264,7 @@ register_activation_hook($meldetool_main_file, function() {
         $page_content .= "<h2 class=\"wp-block-heading\">Anmeldung Fahrer*innen</h2>\n";
         $page_content .= "<!-- /wp:heading -->\n\n";
         $page_content .= "<!-- wp:shortcode -->\n";
-        $page_content .= "[pods-form name=\"fahrer\" fields=\"nachname,vorname,team,fahrer-kategorie,lizenznummer,uci_id,ist_kapitaen,email_rider,nationalitaet,iban,bic,kontoinhaber\"]\n";
+        $page_content .= "[pods-form name=\"fahrer\" fields=\"nachname,vorname,team,fahrer-kategorie,lizenznummer,uci_id,ist_kapitaen,email_rider,nationalitaet,iban,bic,kontoinhaber,etappen_auswahl\"]\n";
         $page_content .= "<!-- /wp:shortcode -->\n";
 
         wp_insert_post(array(

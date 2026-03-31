@@ -118,7 +118,7 @@ add_action('admin_init', function () {
     $out = fopen('php://output', 'w');
 
     // Kopfzeile
-    fputcsv($out, array('Rennklasse','Team','Startnummer','Kapitän','Nachname','Vorname','UCI-ID','Lizenznummer','Kategorie'), $delimiter);
+    fputcsv($out, array('Rennklasse','Team','Startnummer','Kapitän','Nachname','Vorname','UCI-ID','Lizenznummer','Kategorie','Etappe'), $delimiter);
 
     // Rennklassen alphabetisch
     $rennklassen = get_terms(array(
@@ -157,6 +157,8 @@ add_action('admin_init', function () {
             // Keine Teams in der Rennklasse -> Überspringen (keine Leerzeile)
             continue;
         }
+
+        $is_u17_class = (stripos($rk_term->name, 'U17') !== false);
 
         // Teams trennen: regulär vs. Einzelstarter
         $regular = array();
@@ -217,6 +219,8 @@ add_action('admin_init', function () {
 					$kategorie = '—';
 				}
 
+                $etappe = $is_u17_class ? (string) get_post_meta($f->ID, 'etappen_auswahl', true) : '';
+
                 // Nummernvergabe
                 if ($einzelFlg) {
                     // unbegrenzt über Blöcke
@@ -245,7 +249,8 @@ add_action('admin_init', function () {
                     $vorname,
                     $uci,
                     $liz,
-					$kategorie
+					$kategorie,
+                    $etappe
                 ), $delimiter);
                 $class_has_rows = true;
             }

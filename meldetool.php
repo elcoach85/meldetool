@@ -78,6 +78,37 @@ function meldetool_get_iban_bic_visible_team_ids() {
 }
 
 /**
+ * Liefert IDs aller Teams, die einer U17-Rennklasse zugeordnet sind
+ *
+ * @return array Team-IDs mit Etappenauswahl-Pflicht
+ */
+function meldetool_get_u17_team_ids() {
+    $u17_terms = get_terms(array(
+        'taxonomy'   => 'rennklasse',
+        'hide_empty' => false,
+        'search'     => 'U17',
+    ));
+    if (is_wp_error($u17_terms) || empty($u17_terms)) {
+        return array();
+    }
+    $u17_term_ids = wp_list_pluck($u17_terms, 'term_id');
+    $teams = get_posts(array(
+        'post_type'   => 'team',
+        'post_status' => 'any',
+        'numberposts' => -1,
+        'fields'      => 'ids',
+        'tax_query'   => array(
+            array(
+                'taxonomy' => 'rennklasse',
+                'field'    => 'term_id',
+                'terms'    => $u17_term_ids,
+            ),
+        ),
+    ));
+    return array_map('intval', (array) $teams);
+}
+
+/**
  * Frontend-Formular-Logik: Dynamische Feldanzeige basierend auf Team-Typ
  * 
  * Diese Action fügt JavaScript im Footer ein, das Fahrerformulare dynamisch anpasst:
@@ -91,6 +122,7 @@ add_action('wp_footer', function() {
 
     $optional_team_ids = meldetool_get_license_optional_team_ids();
     $iban_bic_team_ids = meldetool_get_iban_bic_visible_team_ids();
+    $u17_team_ids      = meldetool_get_u17_team_ids();
     $logging_enabled = meldetool_is_logging_enabled();
     
     // Debug: sammelt alle Team-IDs und -Namen für Logging (nur wenn Logging aktiv)
@@ -123,8 +155,10 @@ add_action('wp_footer', function() {
         // Team-Arrays aus PHP übernehmen
         var optionalTeamIds = <?php echo wp_json_encode(array_values($optional_team_ids)); ?>;
         var ibanBicTeamIds = <?php echo wp_json_encode(array_values($iban_bic_team_ids)); ?>;
+        var u17TeamIds = <?php echo wp_json_encode(array_values($u17_team_ids)); ?>;
         meldLog('[meldetool] optional team IDs: ' + JSON.stringify(optionalTeamIds));
         meldLog('[meldetool] iban/bic team IDs: ' + JSON.stringify(ibanBicTeamIds));
+        meldLog('[meldetool] u17 team IDs: ' + JSON.stringify(u17TeamIds));
 
         // Sichere Integer-Konvertierung mit NaN-Handling
         function asInt(value) {
@@ -580,6 +614,7 @@ add_action('wp_footer', function() {
             var selectedTeamId = asInt(teamSelect.value);
             var isOptional = optionalTeamIds.indexOf(selectedTeamId) !== -1;
             var isEinzelstarter = ibanBicTeamIds.indexOf(selectedTeamId) !== -1;
+            var isU17Team = u17TeamIds.indexOf(selectedTeamId) !== -1;
 
             ['lizenznummer', 'uci_id'].forEach(function(fieldName) {
                 var wrap = findFieldWrap(fieldName, riderForm);
@@ -620,6 +655,21 @@ add_action('wp_footer', function() {
                 wrap.style.display = (isOptional || isEinzelstarter) ? 'none' : '';
                 input.required = false;
             });
+
+            // Etappenauswahl nur fuer U17-Teams
+            var etappenWrap = findFieldWrap('etappen_auswahl', riderForm);
+            if (etappenWrap) {
+                etappenWrap.style.display = isU17Team ? '' : 'none';
+                var etappenInputs = riderForm.querySelectorAll(
+                    'input[name="pods_field_etappen_auswahl"], input[name="pods_field_etappen-auswahl"], input[name="etappen_auswahl"]'
+                );
+                Array.prototype.forEach.call(etappenInputs, function(input) {
+                    input.required = isU17Team;
+                    if (!isU17Team) {
+                        input.checked = false;
+                    }
+                });
+            }
 
             // Haftungsausschluss-Checkbox fuer Hobbyteams
             meldLog('[meldetool] applyVisibility: teamId=' + selectedTeamId + ', isOptional=' + isOptional + ', calling ensureLiabilityCheckbox');
