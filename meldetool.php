@@ -761,6 +761,71 @@ add_action('wp_footer', function() {
             teamSel.addEventListener('change', validateUci);
         }
 
+        /**
+         * IBAN-Prüfsummen-Algorithmus (ISO 13616, Modulo 97)
+         * Gibt true zurück wenn IBAN formal gültig ist.
+         */
+        function isValidIban(raw) {
+            var iban = raw.replace(/\s/g, '').toUpperCase();
+            if (!/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/.test(iban)) {
+                return false;
+            }
+            var rearranged = iban.slice(4) + iban.slice(0, 4);
+            var numeric = rearranged.replace(/[A-Z]/g, function(c) {
+                return String(c.charCodeAt(0) - 55);
+            });
+            var remainder = 0;
+            for (var i = 0; i < numeric.length; i++) {
+                remainder = (remainder * 10 + parseInt(numeric[i], 10)) % 97;
+            }
+            return remainder === 1;
+        }
+
+        /**
+         * IBAN-Validierung: Format und Prüfsumme prüfen
+         * Nur sichtbar bei Einzelstarter-Teams (ibanBicTeamIds)
+         */
+        function setupIbanValidation() {
+            var teamSel = findTeamSelect();
+            if (!teamSel) return;
+            var riderForm = teamSel.closest('form') || document;
+            var ibanInput = findFieldInput('iban', riderForm);
+            if (!ibanInput || ibanInput.dataset.meldetoolIbanValidation === '1') return;
+            ibanInput.dataset.meldetoolIbanValidation = '1';
+
+            var errorEl = document.createElement('span');
+            errorEl.style.color = '#dc2626';
+            errorEl.style.fontSize = '13px';
+            errorEl.style.marginTop = '4px';
+            errorEl.style.display = 'none';
+            errorEl.textContent = 'Die IBAN ist ungültig. Bitte eine gültige IBAN eingeben.';
+            if (ibanInput.parentNode) {
+                ibanInput.parentNode.insertBefore(errorEl, ibanInput.nextSibling);
+            }
+
+            function validateIban() {
+                var selId = asInt(teamSel.value);
+                var isEinzelstarter = ibanBicTeamIds.indexOf(selId) !== -1;
+                var val = ibanInput.value.trim();
+                if (!isEinzelstarter || val === '') {
+                    ibanInput.setCustomValidity('');
+                    errorEl.style.display = 'none';
+                    return;
+                }
+                if (isValidIban(val)) {
+                    ibanInput.setCustomValidity('');
+                    errorEl.style.display = 'none';
+                } else {
+                    ibanInput.setCustomValidity('Die IBAN ist ungültig.');
+                    errorEl.style.display = '';
+                }
+            }
+
+            ibanInput.addEventListener('input', validateIban);
+            ibanInput.addEventListener('blur', validateIban);
+            teamSel.addEventListener('change', validateIban);
+        }
+
         var bootCompleted = false;
 
         /**
@@ -789,6 +854,7 @@ add_action('wp_footer', function() {
             logAllSelects();
             applyVisibility();
             setupUciIdValidation();
+            setupIbanValidation();
             teamSelect.addEventListener('change', function() {
                 meldLog('[meldetool] team select change event triggered');
                 applyVisibility();
@@ -1209,6 +1275,25 @@ add_filter('pods_form_validate_field_fahrer', function($valid, $value, $name, $o
     if ($name === 'uci_id' && !empty($value) && $value !== 'n/a') {
         if (!preg_match('/^\d{11}$/', (string) $value)) {
             return 'Die UCI-ID muss aus genau 11 Ziffern bestehen (nur Ziffern, keine Leerzeichen).';
+        }
+    }
+    if ($name === 'iban' && !empty($value)) {
+        $iban = strtoupper(preg_replace('/\s+/', '', (string) $value));
+        if (!preg_match('/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/', $iban)) {
+            return 'Die IBAN ist ungültig. Bitte eine gültige IBAN eingeben.';
+        }
+        $rearranged = substr($iban, 4) . substr($iban, 0, 4);
+        $numeric = '';
+        for ($i = 0; $i < strlen($rearranged); $i++) {
+            $c = $rearranged[$i];
+            $numeric .= ctype_alpha($c) ? (string)(ord($c) - 55) : $c;
+        }
+        $remainder = 0;
+        for ($i = 0; $i < strlen($numeric); $i++) {
+            $remainder = ($remainder * 10 + (int)$numeric[$i]) % 97;
+        }
+        if ($remainder !== 1) {
+            return 'Die IBAN ist ungültig. Bitte eine gültige IBAN eingeben.';
         }
     }
     return $valid;
