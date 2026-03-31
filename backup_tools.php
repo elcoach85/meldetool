@@ -210,7 +210,7 @@ function meldetool_backup_collect_posts($post_type, $taxonomies) {
         $meta_filtered = array();
 
         foreach ($meta as $meta_key => $values) {
-            if (in_array($meta_key, array('_edit_lock', '_edit_last', '_wp_old_slug', '_wp_trash_meta_status', '_wp_trash_meta_time'), true)) {
+            if (in_array($meta_key, array('_edit_lock', '_edit_last', '_wp_old_slug', '_wp_trash_meta_status', '_wp_trash_meta_time', '_uagb_previous_block_counts'), true)) {
                 continue;
             }
             $meta_filtered[$meta_key] = array_map('maybe_unserialize', (array) $values);
