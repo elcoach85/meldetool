@@ -83,7 +83,7 @@ register_activation_hook($meldetool_main_file, function() {
         'Männer U23',
         'Schüler U15',
         'Schülerinnen U15',
-        'Hobby',
+        'Hobby (ohne Lizenz)',
     );
     meldetool_ensure_terms('kategorie', $kategorien, $errors);
 
@@ -124,8 +124,7 @@ register_activation_hook($meldetool_main_file, function() {
         'Juniorinnen U19',
         'Schüler U15',
         'Schülerinnen U15',
-        'Hobby 1 – Solitude',
-        'Hobby 2 – Magstadt',
+        'Hobby (ohne Lizenz)',
     );
     meldetool_ensure_terms('rennklasse', $rennklassen, $errors);
 
