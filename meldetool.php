@@ -157,18 +157,18 @@ add_action('wp_footer', function() {
     <!-- meldetool debug: optional_team_ids=<?php echo esc_html(wp_json_encode($optional_team_ids)); ?> all_teams=<?php echo esc_html(wp_json_encode($all_teams_debug)); ?> -->
     <?php endif; ?>
     <style>
-    .pods-form-ui-row-name-pods-field-etappen_auswahl label,
-    .pods-form-ui-row-name-pods-field-etappen-auswahl label,
-    .pods-form-ui-row-name-etappen_auswahl label,
-    .pods-form-ui-row-name-etappen-auswahl label,
-    .pods-form-ui-field-name-etappen_auswahl label,
-    .pods-form-ui-field-name-etappen-auswahl label,
-    .pods-form-ui-row-name-pods-field-etappen_auswahl option,
-    .pods-form-ui-row-name-pods-field-etappen-auswahl option,
-    .pods-form-ui-row-name-etappen_auswahl option,
-    .pods-form-ui-row-name-etappen-auswahl option,
-    .pods-form-ui-field-name-etappen_auswahl option,
-    .pods-form-ui-field-name-etappen-auswahl option {
+    .pods-form-ui-row-name-pods-field-etappen_auswahl .pods-field-radio label,
+    .pods-form-ui-row-name-pods-field-etappen-auswahl .pods-field-radio label,
+    .pods-form-ui-row-name-etappen_auswahl .pods-field-radio label,
+    .pods-form-ui-row-name-etappen-auswahl .pods-field-radio label,
+    .pods-form-ui-field-name-etappen_auswahl .pods-field-radio label,
+    .pods-form-ui-field-name-etappen-auswahl .pods-field-radio label,
+    .pods-form-ui-row-name-pods-field-etappen_auswahl .pods-pick-values label,
+    .pods-form-ui-row-name-pods-field-etappen-auswahl .pods-pick-values label,
+    .pods-form-ui-row-name-etappen_auswahl .pods-pick-values label,
+    .pods-form-ui-row-name-etappen-auswahl .pods-pick-values label,
+    .pods-form-ui-field-name-etappen_auswahl .pods-pick-values label,
+    .pods-form-ui-field-name-etappen-auswahl .pods-pick-values label {
         color: #111827 !important;
     }
     </style>
