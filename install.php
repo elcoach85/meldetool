@@ -199,16 +199,17 @@ register_activation_hook($meldetool_main_file, function() {
                 array('name' => 'bic', 'label' => 'BIC (nur Einzelstarter)', 'type' => 'text'),
                 array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (nur Einzelstarter)', 'type' => 'text'),
                 array(
-                    'name'             => 'etappen_auswahl',
-                    'label'            => 'Etappenauswahl (nur U17)',
-                    'type'             => 'pick',
-                    'pick_format_type' => 'radio',
-                    'data'             => array(
+                    'name'               => 'etappen_auswahl',
+                    'label'              => 'Etappenauswahl (nur U17)',
+                    'type'               => 'pick',
+                    'pick_format_type'   => 'single',
+                    'pick_format_single' => 'radio',
+                    'data'               => array(
                         'Etappe 1'   => 'Etappe 1',
                         'Etappe 2-4' => 'Etappe 2-4',
                         'Etappe 1-4' => 'Etappe 1-4',
                     ),
-                    'required'         => false,
+                    'required'           => false,
                 ),
             ),
         ));

@@ -678,11 +678,33 @@ add_action('wp_footer', function() {
             // Etappenauswahl nur fuer U17-Teams
             var etappenWrap = findFieldWrap('etappen_auswahl', riderForm);
             if (etappenWrap) {
-                etappenWrap.style.display = isU17Team ? '' : 'none';
-                var etappenInputs = riderForm.querySelectorAll(
-                    'input[name="pods_field_etappen_auswahl"], input[name="pods_field_etappen-auswahl"], input[name="etappen_auswahl"]'
+                // Wert vor Display-Toggle sichern – Tom Select / Select2 setzt select
+                // beim Sichtbarwechsel manchmal auf den ersten Eintrag zurueck.
+                var etappenSelect = riderForm.querySelector(
+                    'select[name="pods_field_etappen_auswahl"], select[name="pods_field_etappen-auswahl"], select[name="etappen_auswahl"]'
                 );
-                Array.prototype.forEach.call(etappenInputs, function(input) {
+                var savedEtappenValue = etappenSelect ? etappenSelect.value : null;
+
+                etappenWrap.style.display = isU17Team ? '' : 'none';
+
+                // Select (Dropdown-Fall) behandeln
+                if (etappenSelect) {
+                    etappenSelect.required = isU17Team;
+                    if (isU17Team && savedEtappenValue) {
+                        // Gespeicherten Wert nach Display-Aenderung wiederherstellen
+                        etappenSelect.value = savedEtappenValue;
+                    } else if (!isU17Team) {
+                        etappenSelect.value = '';
+                    }
+                }
+
+                // Radio-Inputs (aktiv sobald Pods-Feld auf Radio umgestellt ist)
+                var etappenRadios = riderForm.querySelectorAll(
+                    'input[type="radio"][name="pods_field_etappen_auswahl"], ' +
+                    'input[type="radio"][name="pods_field_etappen-auswahl"], ' +
+                    'input[type="radio"][name="etappen_auswahl"]'
+                );
+                Array.prototype.forEach.call(etappenRadios, function(input) {
                     input.required = isU17Team;
                     if (!isU17Team) {
                         input.checked = false;
@@ -1673,6 +1695,34 @@ add_filter('manage_edit-fahrer_sortable_columns', function ($columns) {
  * 
  * Hook: admin_notices (Admin Interface Notices)
  */
+// Einmalige Upgrade-Routine: bestehendes etappen_auswahl-Feld auf Radio-Format umstellen
+add_action('admin_init', function() {
+    if (get_option('meldetool_etappen_radio_upgrade_done')) return;
+    if (!function_exists('pods_api')) return;
+    if (!current_user_can('manage_options')) return;
+    try {
+        $api   = pods_api();
+        $field = $api->load_field(array('pod' => 'fahrer', 'name' => 'etappen_auswahl'));
+        if (empty($field) || empty($field['id'])) {
+            update_option('meldetool_etappen_radio_upgrade_done', 1);
+            return;
+        }
+        $field['pick_format_type']              = 'single';
+        $field['pick_format_single']            = 'radio';
+        $field['options']['pick_format_type']   = 'single';
+        $field['options']['pick_format_single'] = 'radio';
+        $result = $api->save_field($field);
+        if (!is_wp_error($result)) {
+            update_option('meldetool_etappen_radio_upgrade_done', 1);
+            if (method_exists($api, 'cache_flush_pods')) {
+                $api->cache_flush_pods();
+            }
+        }
+    } catch (\Exception $e) {
+        // Silently ignore – Pods nicht bereit
+    }
+});
+
 add_action('admin_notices', function () {
     if (!is_admin()) return;
 
