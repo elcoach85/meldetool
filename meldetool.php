@@ -826,6 +826,56 @@ add_action('wp_footer', function() {
             teamSel.addEventListener('change', validateIban);
         }
 
+        /**
+         * IBAN-Validierung im Teamformular (Anmeldung Teams)
+         * Das IBAN-Feld ist dort immer sichtbar und wird unabhaengig vom Team-Typ geprueft.
+         */
+        function setupTeamFormIbanValidation() {
+            var teamForm = findFormNearHeading('Anmeldung Teams')
+                || findFormByFieldSelectors([
+                    'input[name="pods_field_teamname"]',
+                    'input[name="teamname"]',
+                    'input[name="pods_field_email_manager"]',
+                    'input[name="email_manager"]'
+                ]);
+            if (!teamForm) return;
+
+            var ibanInput = teamForm.querySelector(
+                'input[name="pods_field_iban"], input[name="iban"], #pods-form-ui-pods-field-iban, #pods-form-ui-iban'
+            );
+            if (!ibanInput || ibanInput.dataset.meldetoolIbanValidation === '1') return;
+            ibanInput.dataset.meldetoolIbanValidation = '1';
+
+            var errorEl = document.createElement('span');
+            errorEl.style.color = '#dc2626';
+            errorEl.style.fontSize = '13px';
+            errorEl.style.marginTop = '4px';
+            errorEl.style.display = 'none';
+            errorEl.textContent = 'Die IBAN ist ungültig. Bitte eine gültige IBAN eingeben.';
+            if (ibanInput.parentNode) {
+                ibanInput.parentNode.insertBefore(errorEl, ibanInput.nextSibling);
+            }
+
+            function validateTeamIban() {
+                var val = ibanInput.value.trim();
+                if (val === '') {
+                    ibanInput.setCustomValidity('');
+                    errorEl.style.display = 'none';
+                    return;
+                }
+                if (isValidIban(val)) {
+                    ibanInput.setCustomValidity('');
+                    errorEl.style.display = 'none';
+                } else {
+                    ibanInput.setCustomValidity('Die IBAN ist ungültig.');
+                    errorEl.style.display = '';
+                }
+            }
+
+            ibanInput.addEventListener('input', validateTeamIban);
+            ibanInput.addEventListener('blur', validateTeamIban);
+        }
+
         var bootCompleted = false;
 
         /**
@@ -855,6 +905,7 @@ add_action('wp_footer', function() {
             applyVisibility();
             setupUciIdValidation();
             setupIbanValidation();
+            setupTeamFormIbanValidation();
             teamSelect.addEventListener('change', function() {
                 meldLog('[meldetool] team select change event triggered');
                 applyVisibility();
@@ -1268,6 +1319,31 @@ function meldetool_send_rider_details_mail($rider_id) {
 }
 
 /**
+ * Prüft eine IBAN per ISO-13616-Algorithmus (Modulo 97).
+ * Gibt eine Fehlermeldung zurück oder null bei Gültigkeit.
+ */
+function meldetool_validate_iban($value) {
+    $iban = strtoupper(preg_replace('/\s+/', '', (string) $value));
+    if (!preg_match('/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/', $iban)) {
+        return 'Die IBAN ist ungültig. Bitte eine gültige IBAN eingeben.';
+    }
+    $rearranged = substr($iban, 4) . substr($iban, 0, 4);
+    $numeric = '';
+    for ($i = 0; $i < strlen($rearranged); $i++) {
+        $c = $rearranged[$i];
+        $numeric .= ctype_alpha($c) ? (string)(ord($c) - 55) : $c;
+    }
+    $remainder = 0;
+    for ($i = 0; $i < strlen($numeric); $i++) {
+        $remainder = ($remainder * 10 + (int)$numeric[$i]) % 97;
+    }
+    if ($remainder !== 1) {
+        return 'Die IBAN ist ungültig. Bitte eine gültige IBAN eingeben.';
+    }
+    return null;
+}
+
+/**
  * UCI-ID Serverseite: Muss aus genau 11 Ziffern bestehen
  * Wird beim Speichern über das Pods-Formular geprüft.
  */
@@ -1278,23 +1354,16 @@ add_filter('pods_form_validate_field_fahrer', function($valid, $value, $name, $o
         }
     }
     if ($name === 'iban' && !empty($value)) {
-        $iban = strtoupper(preg_replace('/\s+/', '', (string) $value));
-        if (!preg_match('/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/', $iban)) {
-            return 'Die IBAN ist ungültig. Bitte eine gültige IBAN eingeben.';
-        }
-        $rearranged = substr($iban, 4) . substr($iban, 0, 4);
-        $numeric = '';
-        for ($i = 0; $i < strlen($rearranged); $i++) {
-            $c = $rearranged[$i];
-            $numeric .= ctype_alpha($c) ? (string)(ord($c) - 55) : $c;
-        }
-        $remainder = 0;
-        for ($i = 0; $i < strlen($numeric); $i++) {
-            $remainder = ($remainder * 10 + (int)$numeric[$i]) % 97;
-        }
-        if ($remainder !== 1) {
-            return 'Die IBAN ist ungültig. Bitte eine gültige IBAN eingeben.';
-        }
+        $error = meldetool_validate_iban($value);
+        if ($error !== null) return $error;
+    }
+    return $valid;
+}, 10, 6);
+
+add_filter('pods_form_validate_field_team', function($valid, $value, $name, $options, $pod, $id) {
+    if ($name === 'iban' && !empty($value)) {
+        $error = meldetool_validate_iban($value);
+        if ($error !== null) return $error;
     }
     return $valid;
 }, 10, 6);
