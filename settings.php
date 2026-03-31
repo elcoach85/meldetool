@@ -46,13 +46,13 @@ add_action('admin_init', function() {
     add_settings_field('from_email', 'Absender-E-Mail', function() {
         $opts = get_option('meldetool_options', array());
         $val = isset($opts['from_email']) ? esc_attr($opts['from_email']) : '';
-        printf('<input type="email" name="meldetool_options[from_email]" value="%s" class="regular-text" placeholder="orga@the-race-days-stuttgart.de" />', $val);
+        printf('<input type="email" name="meldetool_options[from_email]" value="%s" class="regular-text" placeholder="meldungen@the-race-days-stuttgart.de" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
     add_settings_field('reply_to', 'Reply-To', function() {
         $opts = get_option('meldetool_options', array());
         $val = isset($opts['reply_to']) ? esc_attr($opts['reply_to']) : '';
-        printf('<input type="email" name="meldetool_options[reply_to]" value="%s" class="regular-text" placeholder="orga@the-race-days-stuttgart.de" />', $val);
+        printf('<input type="email" name="meldetool_options[reply_to]" value="%s" class="regular-text" placeholder="meldungen@the-race-days-stuttgart.de" />', $val);
     }, 'meldetool_settings', 'meldetool_main');
 
     add_settings_field('cc_email', 'CC-E-Mail (optional, Kopie der Bestätigung)', function() {

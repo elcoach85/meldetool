@@ -200,7 +200,7 @@ register_activation_hook($meldetool_main_file, function() {
                 array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (nur Einzelstarter)', 'type' => 'text'),
                 array(
                     'name'             => 'etappen_auswahl',
-                    'label'            => 'Etappenauswahl (nur U17)',
+                    'label'            => 'Etappenauswahl',
                     'type'             => 'pick',
                     'pick_format_type' => 'single',
                     'data'             => array(
@@ -285,7 +285,7 @@ add_action('admin_notices', function() {
     // Entfernen, damit der Hinweis nur einmal angezeigt wird
     delete_transient('meldetool_show_pod_connections_notice');
 
-    echo '<div class="notice notice-info is-dismissible"><p><strong>Meldetool:</strong> Bitte in Pods → rennklasse → Verbindungen den Eintrag "team" anhaken und in Pods → kategorie → Verbindungen den Eintrag "fahrer" anhaken. Zusätzlich: Pods → Team → Feld "Rennklasse" → Relationship-Optionen → Sync anhaken. Selbes mit Fahrer → Feld "Kategorie" → Relationship-Optionen → Sync anhaken. Danach ggf. Pods-Cache leeren.</p></div>';
+    echo '<div class="notice notice-info is-dismissible"><p><strong>Meldetool:</strong> Bitte in Pods → rennklasse → Verbindungen den Eintrag "team" anhaken und in Pods → kategorie → Verbindungen den Eintrag "fahrer" anhaken.<br>Zusätzlich: Pods → Team → Feld "Rennklasse" → Relationship-Optionen → Sync anhaken. Selbes mit Fahrer → Feld "Kategorie" → Relationship-Optionen → Sync anhaken. Danach ggf. Pods-Cache leeren.</p></div>';
 });
 
 // Admin notice: Zeige Pods-Aktivierungsfehler (falls vorhanden)

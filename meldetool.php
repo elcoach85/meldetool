@@ -925,7 +925,7 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
         $headers[] = 'Reply-To: ' . $opts['reply_to'];
     }
     if ($send_copy_to_orga) {
-        $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'orga@the-race-days-stuttgart.de';
+        $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'meldungen@the-race-days-stuttgart.de';
         if (!empty($cc) && is_email($cc)) {
             $headers[] = 'Cc: ' . $cc;
         }
