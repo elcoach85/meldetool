@@ -717,6 +717,50 @@ add_action('wp_footer', function() {
             ensureLiabilityCheckbox(riderForm, isOptional);
         }
 
+        /**
+         * UCI-ID Validierung: Muss aus genau 11 Ziffern bestehen
+         */
+        function setupUciIdValidation() {
+            var teamSel = findTeamSelect();
+            if (!teamSel) return;
+            var riderForm = teamSel.closest('form') || document;
+            var uciInput = findFieldInput('uci_id', riderForm);
+            if (!uciInput || uciInput.dataset.meldetoolUciValidation === '1') return;
+            uciInput.dataset.meldetoolUciValidation = '1';
+
+            var errorEl = document.createElement('span');
+            errorEl.style.color = '#dc2626';
+            errorEl.style.fontSize = '13px';
+            errorEl.style.marginTop = '4px';
+            errorEl.style.display = 'none';
+            errorEl.textContent = 'Die UCI-ID muss aus genau 11 Ziffern bestehen.';
+            if (uciInput.parentNode) {
+                uciInput.parentNode.insertBefore(errorEl, uciInput.nextSibling);
+            }
+
+            function validateUci() {
+                var selId = asInt(teamSel.value);
+                var isHobby = optionalTeamIds.indexOf(selId) !== -1;
+                var val = uciInput.value;
+                if (isHobby || val === '' || val === 'n/a') {
+                    uciInput.setCustomValidity('');
+                    errorEl.style.display = 'none';
+                    return;
+                }
+                if (/^\d{11}$/.test(val)) {
+                    uciInput.setCustomValidity('');
+                    errorEl.style.display = 'none';
+                } else {
+                    uciInput.setCustomValidity('Die UCI-ID muss aus genau 11 Ziffern bestehen.');
+                    errorEl.style.display = '';
+                }
+            }
+
+            uciInput.addEventListener('input', validateUci);
+            uciInput.addEventListener('blur', validateUci);
+            teamSel.addEventListener('change', validateUci);
+        }
+
         var bootCompleted = false;
 
         /**
@@ -744,6 +788,7 @@ add_action('wp_footer', function() {
             meldLog('[meldetool] iban/bic IDs: ' + JSON.stringify(ibanBicTeamIds));
             logAllSelects();
             applyVisibility();
+            setupUciIdValidation();
             teamSelect.addEventListener('change', function() {
                 meldLog('[meldetool] team select change event triggered');
                 applyVisibility();
@@ -1155,6 +1200,19 @@ function meldetool_send_rider_details_mail($rider_id) {
         update_post_meta($rider_id, $details_sent_meta, 1);
     }
 }
+
+/**
+ * UCI-ID Serverseite: Muss aus genau 11 Ziffern bestehen
+ * Wird beim Speichern über das Pods-Formular geprüft.
+ */
+add_filter('pods_form_validate_field_fahrer', function($valid, $value, $name, $options, $pod, $id) {
+    if ($name === 'uci_id' && !empty($value) && $value !== 'n/a') {
+        if (!preg_match('/^\d{11}$/', (string) $value)) {
+            return 'Die UCI-ID muss aus genau 11 Ziffern bestehen (nur Ziffern, keine Leerzeichen).';
+        }
+    }
+    return $valid;
+}, 10, 6);
 
 /**
  * Double-Opt-In Workflow für Fahrer:
