@@ -118,10 +118,8 @@ register_activation_hook($meldetool_main_file, function() {
     $rennklassen = array(
         'Elite Amateure und Männer U23',
         'Frauen und Frauen Elite',
-        'Jugend männlich U17 – 1. Etappe',
-        'Jugend männlich U17 - Etappen 2-4',
-        'Jugend weiblich U17 – 1. Etappe',
-        'Jugend weiblich U17 - Etappen 2-4',
+        'Jugend männlich U17',
+        'Jugend weiblich U17',
         'Junioren U19',
         'Juniorinnen U19',
         'Schüler U15',
