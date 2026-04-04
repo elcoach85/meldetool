@@ -77,13 +77,13 @@ function meldetool_get_team_details_text($team_id, $teamname = '') {
  * @param string $subject - E-Mail-Betreff
  * @param string $message - E-Mail-Nachrichtentext (mit Platzhaltern)
  * @param int $team_id - WordPress Post-ID des Teams (optional, für Detailinformationen)
- * @param bool $send_copy_to_orga - CC-Kopie an Orga-E-Mail versenden?
+ * @param bool $send_copy_to_orga - Separate Kopie an Orga-E-Mail versenden (cc_email-Option oder Fallback)?
  * @param bool $append_team_details - Team-Details automatisch anhängen falls {teamdetails} nicht gesetzt?
  * @return bool true wenn wp_mail erfolgreich war, false sonst
  */
 function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_id = 0, $send_copy_to_orga = false, $append_team_details = true) {
     $opts = get_option('meldetool_options', array());
-    $from_name = 'Race Days Orga-Team';
+    $from_name = 'Race Days Meldungen-Team';
     $from_email = (!empty($opts['from_email']) && is_email($opts['from_email']))
         ? $opts['from_email']
         : get_option('admin_email');
@@ -121,20 +121,27 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
     if (!empty($opts['reply_to']) && is_email($opts['reply_to'])) {
         $headers[] = 'Reply-To: ' . $opts['reply_to'];
     }
-    if ($send_copy_to_orga) {
-        $cc = !empty($opts['cc_email']) && is_email($opts['cc_email']) ? $opts['cc_email'] : 'meldungen@the-race-days-stuttgart.de';
-        if (!empty($cc) && is_email($cc)) {
-            $headers[] = 'Cc: ' . $cc;
-        }
+    // Orga-Kopie-Adresse aus Settings (cc_email). Wird als separater Versand gesendet, nicht als
+    // Cc-Header, da SMTP-Plugins/Transaktionsdienste Cc-Header häufig ignorieren oder entfernen.
+    // Kein Versand, wenn cc_email in den Einstellungen leer ist.
+    $orga_copy_email = '';
+    if ($send_copy_to_orga && !empty($opts['cc_email']) && is_email($opts['cc_email'])) {
+        $orga_copy_email = $opts['cc_email'];
     }
-    
+
     // HTML-Entitäten dekodieren (z.B. &#8211; → –), da E-Mail als Plain Text versendet wird
     $subject = html_entity_decode($subject, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $message = html_entity_decode($message, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-    // E-Mail versenden
+    // Haupt-Mail an Teammanager versenden
     $mail_result = wp_mail($email, $subject, $message, $headers);
-    
+
+    // Orga-Kopie als eigene Mail senden (nicht als Cc), damit SMTP-Plugins sie zuverlässig zustellen
+    $orga_result = null;
+    if (!empty($orga_copy_email) && strcasecmp($orga_copy_email, $email) !== 0) {
+        $orga_result = wp_mail($orga_copy_email, $subject, $message, $headers);
+    }
+
     /**
      * Alle E-Mails loggen (unabhängig von Erfolg/Fehler)
      * Log-Datei: plugins/meldetool/mail_log.txt
@@ -143,6 +150,9 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
     $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
     $log_entry = date('Y-m-d H:i:s') . " | TEAM_MAIL | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
     $log_entry .= "To: $email\nSubject: $subject\nHeaders: " . print_r($headers, true) . "\n";
+    if ($orga_result !== null) {
+        $log_entry .= "Orga-Copy-To: $orga_copy_email | " . ($orga_result ? 'SUCCESS' : 'FAIL') . "\n";
+    }
     $log_entry .= "Message: $message\n";
     if (!$mail_result) {
         $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
@@ -237,7 +247,7 @@ function meldetool_get_rider_details_text($rider_id) {
  */
 function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_name, $teamname, $confirm_url) {
     $opts = get_option('meldetool_options', array());
-    $from_name = 'Race Days Orga-Team';
+    $from_name = 'Race Days Meldungen-Team';
     $from_email = (!empty($opts['from_email']) && is_email($opts['from_email']))
         ? $opts['from_email']
         : get_option('admin_email');
