@@ -54,6 +54,18 @@ add_action('init', function() {
         'email'      => isset($_POST['pods_field_email_manager']) ? sanitize_email($_POST['pods_field_email_manager']) : '',
         'post_keys'  => array_keys($_POST),
     ));
+
+    if (!empty($_POST['action']) && $_POST['action'] === 'pods_admin') {
+        ob_start(function($buffer) {
+            $response = trim((string) $buffer);
+            if ($response !== '') {
+                meldetool_debug_log('TEAM_FORM_AJAX_RESPONSE', array(
+                    'response' => strlen($response) > 4000 ? substr($response, 0, 4000) . '...[truncated]' : $response,
+                ));
+            }
+            return $buffer;
+        });
+    }
 });
 
 /**
