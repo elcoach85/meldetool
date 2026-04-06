@@ -110,21 +110,15 @@ add_action('wp_ajax_meldetool_refresh_team_form_tokens', function() {
 
 // Root-Cause-Fix (serverseitig): Bei Team-Formular-Submits frische Pods-Tokens erzwingen,
 // falls ein gecachtes Frontend alte _pods_nonce/_pods_form_key liefert.
-add_action('init', function() {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        return;
-    }
-
-    if (!defined('DOING_AJAX') || !DOING_AJAX) {
-        return;
-    }
-
-    $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';
+// Wichtig: Hook auf wp_ajax_nopriv_pods_admin (priority 0), NICHT auf init. Erst zu diesem
+// Zeitpunkt hat Pods seinen [pods-form]-Shortcode registriert, sodass do_shortcode() funktioniert.
+// Pods' eigener Handler läuft bei Priority 10, sieht also unsere aktualisierten $_POST-Werte.
+function meldetool_server_token_swap() {
     $method = isset($_POST['method']) ? sanitize_text_field(wp_unslash($_POST['method'])) : '';
     $pod_name = isset($_POST['_pods_pod']) ? sanitize_key(wp_unslash($_POST['_pods_pod'])) : '';
     $pod_id = isset($_POST['_pods_id']) ? trim((string) wp_unslash($_POST['_pods_id'])) : '';
 
-    if ($action !== 'pods_admin' || $method !== 'process_form' || $pod_name !== 'team' || $pod_id !== '') {
+    if ($method !== 'process_form' || $pod_name !== 'team' || $pod_id !== '') {
         return;
     }
 
@@ -155,7 +149,7 @@ add_action('init', function() {
     if (!empty($missing)) {
         if (function_exists('meldetool_debug_log')) {
             meldetool_debug_log('TEAM_SERVER_TOKEN_SWAP_FAILED', array(
-                'missing' => $missing,
+                'missing'    => $missing,
                 'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
             ));
         }
@@ -169,11 +163,13 @@ add_action('init', function() {
 
     if (function_exists('meldetool_debug_log')) {
         meldetool_debug_log('TEAM_SERVER_TOKEN_SWAP_OK', array(
-            'keys' => array_keys($fresh_tokens),
+            'keys'       => array_keys($fresh_tokens),
             'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
         ));
     }
-}, 0);
+}
+add_action('wp_ajax_nopriv_pods_admin', 'meldetool_server_token_swap', 0);
+add_action('wp_ajax_pods_admin',        'meldetool_server_token_swap', 0);
 
 /**
  * Liefert IDs aller Teams, bei denen Lizenznummer optional ist
