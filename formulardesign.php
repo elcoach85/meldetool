@@ -764,13 +764,23 @@ add_action('wp_footer', function() {
                 return;
             }
 
+            // Flag verhindert rekursive Schleife: nach Nonce-Refresh übergeben wir
+            // die Kontrolle durch Klick auf Submit-Button zurück an Pods' eigenen Handler.
+            var nonceAlreadyRefreshed = false;
+
             teamForm.addEventListener('submit', function(e) {
-                var nonceField = teamForm.querySelector('input[name="_pods_nonce"]');
-                if (!nonceField) {
-                    return; // nichts zu tun
+                // Zweiter Durchlauf (nach Refresh): Pods' Handler soll normal laufen
+                if (nonceAlreadyRefreshed) {
+                    nonceAlreadyRefreshed = false;
+                    return;
                 }
 
-                // Submit-Event pausieren und frischen Nonce holen
+                var nonceField = teamForm.querySelector('input[name="_pods_nonce"]');
+                if (!nonceField) {
+                    return;
+                }
+
+                // Submit pausieren und frischen Nonce holen
                 e.preventDefault();
                 e.stopImmediatePropagation();
 
@@ -792,11 +802,20 @@ add_action('wp_footer', function() {
                     } else {
                         meldLog('[meldetool] nonce refresh request failed, status=' + xhr.status);
                     }
-                    // Formular absenden, egal ob Refresh geklappt hat oder nicht
-                    teamForm.submit();
+
+                    // Submit-Button klicken statt teamForm.submit(), damit Pods'
+                    // eigener AJAX-Handler (submit-Event-Listener) korrekt ausgelöst wird.
+                    nonceAlreadyRefreshed = true;
+                    var submitBtn = teamForm.querySelector('button[type="submit"], input[type="submit"], .pods-form-ui-submit');
+                    if (submitBtn) {
+                        submitBtn.click();
+                    } else {
+                        // Letzter Ausweg: neues Submit-Event auslösen (löst Event-Listener aus)
+                        teamForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                    }
                 };
                 xhr.send('action=meldetool_refresh_nonce');
-            }, true); // capture=true, damit wir vor anderen Listenern feuern
+            }, true); // capture=true: feuert vor Pods' eigenem Submit-Handler
 
             meldLog('[meldetool] team form nonce refresher initialized');
         }
