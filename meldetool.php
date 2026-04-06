@@ -108,6 +108,73 @@ add_action('wp_ajax_meldetool_refresh_team_form_tokens', function() {
     do_action('wp_ajax_nopriv_meldetool_refresh_team_form_tokens');
 });
 
+// Root-Cause-Fix (serverseitig): Bei Team-Formular-Submits frische Pods-Tokens erzwingen,
+// falls ein gecachtes Frontend alte _pods_nonce/_pods_form_key liefert.
+add_action('init', function() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        return;
+    }
+
+    if (!defined('DOING_AJAX') || !DOING_AJAX) {
+        return;
+    }
+
+    $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';
+    $method = isset($_POST['method']) ? sanitize_text_field(wp_unslash($_POST['method'])) : '';
+    $pod_name = isset($_POST['_pods_pod']) ? sanitize_key(wp_unslash($_POST['_pods_pod'])) : '';
+    $pod_id = isset($_POST['_pods_id']) ? trim((string) wp_unslash($_POST['_pods_id'])) : '';
+
+    if ($action !== 'pods_admin' || $method !== 'process_form' || $pod_name !== 'team' || $pod_id !== '') {
+        return;
+    }
+
+    $incoming_nonce = isset($_POST['_pods_nonce']) ? sanitize_text_field(wp_unslash($_POST['_pods_nonce'])) : '';
+    $nonce_is_valid = ($incoming_nonce !== '' && wp_verify_nonce($incoming_nonce, 'pods-form'));
+
+    // Nur bei ungültigem/fehlendem Nonce neu schreiben, um legitime Requests nicht unnötig zu ändern.
+    if ($nonce_is_valid) {
+        return;
+    }
+
+    $shortcode = '[pods-form name="team" fields="teamname,team-rennklasse,teammanager,email_manager,iban,bic,kontoinhaber"]';
+    $html = do_shortcode($shortcode);
+
+    $fresh_tokens = array(
+        '_pods_nonce'    => meldetool_extract_hidden_input_value($html, '_pods_nonce'),
+        '_pods_form_key' => meldetool_extract_hidden_input_value($html, '_pods_form_key'),
+        '_pods_form'     => meldetool_extract_hidden_input_value($html, '_pods_form'),
+    );
+
+    $missing = array();
+    foreach ($fresh_tokens as $k => $v) {
+        if ($v === '') {
+            $missing[] = $k;
+        }
+    }
+
+    if (!empty($missing)) {
+        if (function_exists('meldetool_debug_log')) {
+            meldetool_debug_log('TEAM_SERVER_TOKEN_SWAP_FAILED', array(
+                'missing' => $missing,
+                'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
+            ));
+        }
+        return;
+    }
+
+    foreach ($fresh_tokens as $k => $v) {
+        $_POST[$k] = $v;
+        $_REQUEST[$k] = $v;
+    }
+
+    if (function_exists('meldetool_debug_log')) {
+        meldetool_debug_log('TEAM_SERVER_TOKEN_SWAP_OK', array(
+            'keys' => array_keys($fresh_tokens),
+            'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
+        ));
+    }
+}, 0);
+
 /**
  * Liefert IDs aller Teams, bei denen Lizenznummer optional ist
  * 
