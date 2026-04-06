@@ -200,6 +200,12 @@ add_action('init', function() {
         ));
     }
 
+    // Marker für Frontend: Dieser Request war trotz Pods-Fehltext erfolgreich.
+    // Cookie ist kurzlebig und wird clientseitig nach Anzeige entfernt.
+    if (!headers_sent()) {
+        setcookie('meldetool_team_fallback_saved', '1', time() + 120, '/');
+    }
+
     wp_send_json_success(array(
         'id' => (int) $post_id,
         'message' => 'Formular erfolgreich uebermittelt.',
