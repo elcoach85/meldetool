@@ -91,6 +91,8 @@ add_action('init', function() {
     $fresh_nonce = wp_create_nonce('pods-form');
     $_POST['_pods_nonce'] = $fresh_nonce;
     $_REQUEST['_pods_nonce'] = $fresh_nonce;
+    $_POST['_meldetool_nonce_refreshed'] = '1';
+    $_REQUEST['_meldetool_nonce_refreshed'] = '1';
 
     if (function_exists('meldetool_debug_log')) {
         meldetool_debug_log('PODS_NONCE_REFRESHED_SERVER_SIDE', array(
@@ -100,6 +102,109 @@ add_action('init', function() {
         ));
     }
 }, 0);
+
+// Letzter Fallback für mobilen Cache-Fall:
+// Wenn der Nonce serverseitig bereits refreshed wurde, Pods aber weiterhin mit
+// "Zugriff verweigert" aussteigt (z.B. wegen veraltetem _pods_form_key), speichern wir
+// Team-Meldungen direkt und feuern danach denselben Hook für den Mailversand.
+add_action('init', function() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        return;
+    }
+
+    if (!defined('DOING_AJAX') || !DOING_AJAX) {
+        return;
+    }
+
+    $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';
+    $method = isset($_POST['method']) ? sanitize_text_field(wp_unslash($_POST['method'])) : '';
+    $pod_name = isset($_POST['_pods_pod']) ? sanitize_key(wp_unslash($_POST['_pods_pod'])) : '';
+    $pod_id = isset($_POST['_pods_id']) ? trim((string) wp_unslash($_POST['_pods_id'])) : '';
+    $nonce_refreshed = !empty($_REQUEST['_meldetool_nonce_refreshed']);
+
+    if ($action !== 'pods_admin' || $method !== 'process_form' || $pod_name !== 'team') {
+        return;
+    }
+
+    // Nur neue Team-Meldung, nur wenn wir den Cache-Fehler bereits erkannt haben.
+    if ($pod_id !== '' || !$nonce_refreshed) {
+        return;
+    }
+
+    $teamname = isset($_POST['pods_field_teamname']) ? sanitize_text_field(wp_unslash($_POST['pods_field_teamname'])) : '';
+    $teammanager = isset($_POST['pods_field_teammanager']) ? sanitize_text_field(wp_unslash($_POST['pods_field_teammanager'])) : '';
+    $email_manager = isset($_POST['pods_field_email_manager']) ? sanitize_email(wp_unslash($_POST['pods_field_email_manager'])) : '';
+    $iban = isset($_POST['pods_field_iban']) ? sanitize_text_field(wp_unslash($_POST['pods_field_iban'])) : '';
+    $bic = isset($_POST['pods_field_bic']) ? sanitize_text_field(wp_unslash($_POST['pods_field_bic'])) : '';
+    $kontoinhaber = isset($_POST['pods_field_kontoinhaber']) ? sanitize_text_field(wp_unslash($_POST['pods_field_kontoinhaber'])) : '';
+
+    if ($teamname === '' || $email_manager === '' || !is_email($email_manager)) {
+        if (function_exists('meldetool_debug_log')) {
+            meldetool_debug_log('TEAM_FALLBACK_ABORT_INVALID_INPUT', array(
+                'teamname' => $teamname,
+                'email_manager' => $email_manager,
+            ));
+        }
+        return;
+    }
+
+    $post_id = wp_insert_post(array(
+        'post_type'   => 'team',
+        'post_status' => 'pending',
+        'post_title'  => $teamname,
+    ), true);
+
+    if (is_wp_error($post_id) || !$post_id) {
+        if (function_exists('meldetool_debug_log')) {
+            meldetool_debug_log('TEAM_FALLBACK_INSERT_FAILED', array(
+                'error' => is_wp_error($post_id) ? $post_id->get_error_message() : 'unknown',
+            ));
+        }
+        return;
+    }
+
+    update_post_meta($post_id, 'teamname', $teamname);
+    update_post_meta($post_id, 'teammanager', $teammanager);
+    update_post_meta($post_id, 'email_manager', $email_manager);
+    update_post_meta($post_id, 'iban', $iban);
+    update_post_meta($post_id, 'bic', $bic);
+    update_post_meta($post_id, 'kontoinhaber', $kontoinhaber);
+
+    $rennklasse_raw = isset($_POST['pods_field_team-rennklasse']) ? wp_unslash($_POST['pods_field_team-rennklasse']) : array();
+    $rennklasse_ids = array();
+    if (is_array($rennklasse_raw)) {
+        $rennklasse_ids = array_filter(array_map('intval', $rennklasse_raw));
+    } elseif ($rennklasse_raw !== '') {
+        $rennklasse_ids = array((int) $rennklasse_raw);
+    }
+    if (!empty($rennklasse_ids)) {
+        wp_set_post_terms($post_id, $rennklasse_ids, 'rennklasse', false);
+    }
+
+    if (function_exists('meldetool_sync_team_post_title')) {
+        meldetool_sync_team_post_title($post_id, $teamname);
+    }
+
+    // Bestehende Mail-/Weiterverarbeitungslogik wiederverwenden.
+    do_action('pods_api_post_save_pod_item_team', array(
+        'teamname' => $teamname,
+        'teammanager' => $teammanager,
+        'email_manager' => $email_manager,
+    ), null, $post_id);
+
+    if (function_exists('meldetool_debug_log')) {
+        meldetool_debug_log('TEAM_FALLBACK_SAVED_SUCCESS', array(
+            'post_id' => (int) $post_id,
+            'teamname' => $teamname,
+            'email_manager' => $email_manager,
+        ));
+    }
+
+    wp_send_json_success(array(
+        'id' => (int) $post_id,
+        'message' => 'Formular erfolgreich uebermittelt.',
+    ));
+}, 1);
 
 /**
  * Liefert IDs aller Teams, bei denen Lizenznummer optional ist
