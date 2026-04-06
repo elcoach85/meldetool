@@ -23,6 +23,20 @@ add_action('init', function() {
     register_taxonomy_for_object_type('rennklasse', 'team');
 });
 
+// Formularseite niemals cachen, damit POST/Nonce/Erfolgsmeldungen nicht aus einem Mobile-Cache stammen.
+add_action('template_redirect', function() {
+    if (is_admin()) {
+        return;
+    }
+
+    if (is_page('anmeldung')) {
+        if (!defined('DONOTCACHEPAGE')) {
+            define('DONOTCACHEPAGE', true);
+        }
+        nocache_headers();
+    }
+});
+
 /**
  * Liefert IDs aller Teams, bei denen Lizenznummer optional ist
  * 

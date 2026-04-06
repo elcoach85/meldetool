@@ -12,6 +12,43 @@
 defined( 'ABSPATH' ) or die( 'Are you ok?' );
 
 /**
+ * Schreibt optionale Debug-Eintraege in mail_log.txt, wenn Logging in den Settings aktiv ist.
+ */
+function meldetool_debug_log($event, $data = array()) {
+    if (!function_exists('meldetool_is_logging_enabled') || !meldetool_is_logging_enabled()) {
+        return;
+    }
+
+    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+    $entry = date('Y-m-d H:i:s') . ' | DEBUG | ' . $event . "\n";
+    if (!empty($data)) {
+        $entry .= print_r($data, true) . "\n";
+    }
+    $entry .= str_repeat('-', 60) . "\n";
+    file_put_contents($logfile, $entry, FILE_APPEND);
+}
+
+add_action('init', function() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        return;
+    }
+
+    $post_keys = array_keys($_POST);
+    $has_team_fields = isset($_POST['pods_field_teamname']) || isset($_POST['teamname'])
+        || isset($_POST['pods_field_email_manager']) || isset($_POST['email_manager']);
+
+    if (!$has_team_fields) {
+        return;
+    }
+
+    meldetool_debug_log('TEAM_FORM_POST_RECEIVED', array(
+        'uri' => isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '',
+        'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
+        'post_keys' => $post_keys,
+    ));
+});
+
+/**
  * Erstellt formatiertes Text-Snippet mit Team-Detailinformationen
  * 
  * Wird verwendet in E-Mail-Benachrichtigungen als Placeholder {teamdetails}
@@ -484,6 +521,12 @@ add_action('template_redirect', function() {
  * - Veröffentlichungs-Benachrichtigung: Wird versendet wenn Team publish wird (wp_after_insert_post)
  */
 add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
+    meldetool_debug_log('TEAM_PODS_SAVE_HOOK_FIRED', array(
+        'id' => (int) $id,
+        'data_keys' => is_array($data) ? array_keys($data) : array(),
+        'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
+    ));
+
     $mail_sent_meta_key = '_meldetool_confirmation_sent';
 
     // Verhindert Doppelversand: Wenn Meta-Flag bereits gesetzt, Hook beenden
