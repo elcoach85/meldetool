@@ -33,7 +33,6 @@ add_action('init', function() {
         return;
     }
 
-    $post_keys = array_keys($_POST);
     $has_team_fields = isset($_POST['pods_field_teamname']) || isset($_POST['teamname'])
         || isset($_POST['pods_field_email_manager']) || isset($_POST['email_manager']);
 
@@ -42,9 +41,18 @@ add_action('init', function() {
     }
 
     meldetool_debug_log('TEAM_FORM_POST_RECEIVED', array(
-        'uri' => isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '',
+        'uri'        => isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '',
         'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
-        'post_keys' => $post_keys,
+        'method'     => isset($_POST['method']) ? sanitize_text_field($_POST['method']) : '',
+        'pods_pod'   => isset($_POST['_pods_pod']) ? sanitize_text_field($_POST['_pods_pod']) : '',
+        'pods_id'    => isset($_POST['_pods_id']) ? sanitize_text_field($_POST['_pods_id']) : '',
+        'nonce_set'  => isset($_POST['_pods_nonce']) ? 'yes' : 'no',
+        'nonce_valid'=> isset($_POST['_pods_nonce'])
+            ? (wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_pods_nonce'])), 'pods-form') ? 'VALID' : 'INVALID-OR-EXPIRED')
+            : 'missing',
+        'teamname'   => isset($_POST['pods_field_teamname']) ? sanitize_text_field($_POST['pods_field_teamname']) : '',
+        'email'      => isset($_POST['pods_field_email_manager']) ? sanitize_email($_POST['pods_field_email_manager']) : '',
+        'post_keys'  => array_keys($_POST),
     ));
 });
 
@@ -522,13 +530,12 @@ add_action('template_redirect', function() {
  */
 add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
     meldetool_debug_log('TEAM_PODS_SAVE_HOOK_FIRED', array(
-        'id' => (int) $id,
-        'data_keys' => is_array($data) ? array_keys($data) : array(),
+        'id'         => (int) $id,
+        'data_keys'  => is_array($data) ? array_keys($data) : array(),
         'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
     ));
 
     $mail_sent_meta_key = '_meldetool_confirmation_sent';
-
     // Verhindert Doppelversand: Wenn Meta-Flag bereits gesetzt, Hook beenden
     if (get_post_meta($id, $mail_sent_meta_key, true)) {
         return;
