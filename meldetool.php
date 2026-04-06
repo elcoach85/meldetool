@@ -23,18 +23,36 @@ add_action('init', function() {
     register_taxonomy_for_object_type('rennklasse', 'team');
 });
 
-// Formularseite niemals cachen, damit POST/Nonce/Erfolgsmeldungen nicht aus einem Mobile-Cache stammen.
-add_action('template_redirect', function() {
-    if (is_admin()) {
-        return;
-    }
-
-    if (is_page('anmeldung')) {
-        if (!defined('DONOTCACHEPAGE')) {
-            define('DONOTCACHEPAGE', true);
-        }
+// Formularseite niemals cachen – so früh wie möglich setzen, damit Caching-Plugins den Flag
+// noch vor dem Speichern der Cache-Kopie sehen. template_redirect ist für einige Plugins zu spät.
+add_action('plugins_loaded', function() {
+    // Slug-Prüfung erst, wenn globales $wp_query verfügbar; Fallback: REQUEST_URI
+    $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+    if (strpos($uri, '/anmeldung') !== false) {
+        if (!defined('DONOTCACHEPAGE'))   define('DONOTCACHEPAGE',   true);
+        if (!defined('DONOTCACHEOBJECT')) define('DONOTCACHEOBJECT', true);
+        if (!defined('DONOTMINIFY'))      define('DONOTMINIFY',      true);
         nocache_headers();
     }
+});
+
+// Zusätzlich im template_redirect (nach WP-Query) für Plugins, die is_page() nutzen.
+add_action('template_redirect', function() {
+    if (is_admin() || !is_page('anmeldung')) {
+        return;
+    }
+    if (!defined('DONOTCACHEPAGE'))   define('DONOTCACHEPAGE',   true);
+    if (!defined('DONOTCACHEOBJECT')) define('DONOTCACHEOBJECT', true);
+    nocache_headers();
+});
+
+// AJAX-Endpunkt: liefert einen frischen Pods-Formular-Nonce für die Anmeldeseite.
+// Wird vom JavaScript-Nonce-Refresher kurz vor dem Submit aufgerufen.
+add_action('wp_ajax_nopriv_meldetool_refresh_nonce', function() {
+    wp_send_json_success(array('nonce' => wp_create_nonce('pods-form')));
+});
+add_action('wp_ajax_meldetool_refresh_nonce', function() {
+    wp_send_json_success(array('nonce' => wp_create_nonce('pods-form')));
 });
 
 /**

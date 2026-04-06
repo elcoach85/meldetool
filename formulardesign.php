@@ -749,6 +749,58 @@ add_action('wp_footer', function() {
             ibanInput.addEventListener('blur', validateTeamIban);
         }
 
+        /**
+         * Nonce-Refresher: Holt kurz vor dem Team-Formular-Submit einen frischen Pods-Nonce
+         * per AJAX und ersetzt den (möglicherweise gecachten) Formular-Nonce.
+         * Verhindert "Nonce abgelaufen"-Fehler auf gecachten Seiten (Mobile/CDN).
+         */
+        function initTeamFormNonceRefresher() {
+            var teamForm = findFormNearHeading('Anmeldung Teams')
+                || findFormByFieldSelectors([
+                    'input[name="pods_field_teamname"]',
+                    'input[name="teamname"]'
+                ]);
+            if (!teamForm) {
+                return;
+            }
+
+            teamForm.addEventListener('submit', function(e) {
+                var nonceField = teamForm.querySelector('input[name="_pods_nonce"]');
+                if (!nonceField) {
+                    return; // nichts zu tun
+                }
+
+                // Submit-Event pausieren und frischen Nonce holen
+                e.preventDefault();
+                e.stopImmediatePropagation();
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '<?php echo esc_js(admin_url('admin-ajax.php')); ?>', true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState !== 4) return;
+                    if (xhr.status === 200) {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            if (data && data.success && data.data && data.data.nonce) {
+                                nonceField.value = data.data.nonce;
+                                meldLog('[meldetool] nonce refreshed before team submit');
+                            }
+                        } catch (err) {
+                            meldLog('[meldetool] nonce refresh parse error: ' + err);
+                        }
+                    } else {
+                        meldLog('[meldetool] nonce refresh request failed, status=' + xhr.status);
+                    }
+                    // Formular absenden, egal ob Refresh geklappt hat oder nicht
+                    teamForm.submit();
+                };
+                xhr.send('action=meldetool_refresh_nonce');
+            }, true); // capture=true, damit wir vor anderen Listenern feuern
+
+            meldLog('[meldetool] team form nonce refresher initialized');
+        }
+
         var bootCompleted = false;
 
         /**
@@ -767,6 +819,7 @@ add_action('wp_footer', function() {
             }
 
             initFrontendFormSwitcher();
+            initTeamFormNonceRefresher();
 
             var teamSelect = findTeamSelect();
             if (!teamSelect) {
