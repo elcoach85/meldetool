@@ -838,7 +838,8 @@ add_action('wp_footer', function() {
             }
 
             initFrontendFormSwitcher();
-            initTeamFormNonceRefresher();
+            // Nonce-Refresh im Frontend deaktiviert: serverseitiger Fallback in meldetool.php
+            // behandelt den mobilen Cache-Fall robuster ohne doppelte Submit-Events.
 
             var teamSelect = findTeamSelect();
             if (!teamSelect) {
