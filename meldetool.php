@@ -55,6 +55,52 @@ add_action('wp_ajax_meldetool_refresh_nonce', function() {
     wp_send_json_success(array('nonce' => wp_create_nonce('pods-form')));
 });
 
+// Fallback für gecachte öffentliche Pods-Formulare: abgelaufenen Nonce serverseitig ersetzen,
+// bevor Pods den AJAX-Request verarbeitet. Das betrifft nur neue Team-/Fahrer-Meldungen aus dem Frontend.
+add_action('init', function() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        return;
+    }
+
+    if (!isset($_POST['method'], $_POST['_pods_pod'], $_POST['_pods_nonce'])) {
+        return;
+    }
+
+    $method = sanitize_text_field(wp_unslash($_POST['method']));
+    $pod_name = sanitize_key(wp_unslash($_POST['_pods_pod']));
+    $pod_id = isset($_POST['_pods_id']) ? trim((string) wp_unslash($_POST['_pods_id'])) : '';
+    $nonce = sanitize_text_field(wp_unslash($_POST['_pods_nonce']));
+
+    if ($method !== 'process_form') {
+        return;
+    }
+
+    if ($pod_name !== 'team' && $pod_name !== 'fahrer') {
+        return;
+    }
+
+    // Nur für neue öffentliche Meldungen, nicht für Admin-Edits bestehender Datensätze.
+    if ($pod_id !== '') {
+        return;
+    }
+
+    if (wp_verify_nonce($nonce, 'pods-form')) {
+        return;
+    }
+
+    $fresh_nonce = wp_create_nonce('pods-form');
+    $_POST['_pods_nonce'] = $fresh_nonce;
+    $_REQUEST['_pods_nonce'] = $fresh_nonce;
+
+    if (function_exists('meldetool_debug_log')) {
+        meldetool_debug_log('PODS_NONCE_REFRESHED_SERVER_SIDE', array(
+            'pod' => $pod_name,
+            'method' => $method,
+            'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
+        ));
+    }
+}, 0);
+
 /**
  * Liefert IDs aller Teams, bei denen Lizenznummer optional ist
  * 
