@@ -750,9 +750,8 @@ add_action('wp_footer', function() {
         }
 
         /**
-         * Nonce-Refresher: Holt kurz vor dem Team-Formular-Submit einen frischen Pods-Nonce
-         * per AJAX und ersetzt den (möglicherweise gecachten) Formular-Nonce.
-         * Verhindert "Nonce abgelaufen"-Fehler auf gecachten Seiten (Mobile/CDN).
+         * Token-Refresher: Holt kurz vor dem Team-Submit frische Pods-Hidden-Inputs
+         * (_pods_nonce + _pods_form_key + _pods_form), damit keine gecachten Werte gesendet werden.
          */
         function initTeamFormNonceRefresher() {
             var teamForm = findFormNearHeading('Anmeldung Teams')
@@ -776,7 +775,9 @@ add_action('wp_footer', function() {
                 }
 
                 var nonceField = teamForm.querySelector('input[name="_pods_nonce"]');
-                if (!nonceField) {
+                var formKeyField = teamForm.querySelector('input[name="_pods_form_key"]');
+                var formField = teamForm.querySelector('input[name="_pods_form"]');
+                if (!nonceField || !formKeyField || !formField) {
                     return;
                 }
 
@@ -792,15 +793,23 @@ add_action('wp_footer', function() {
                     if (xhr.status === 200) {
                         try {
                             var data = JSON.parse(xhr.responseText);
-                            if (data && data.success && data.data && data.data.nonce) {
-                                nonceField.value = data.data.nonce;
-                                meldLog('[meldetool] nonce refreshed before team submit');
+                            if (data && data.success && data.data) {
+                                if (data.data._pods_nonce) {
+                                    nonceField.value = data.data._pods_nonce;
+                                }
+                                if (data.data._pods_form_key) {
+                                    formKeyField.value = data.data._pods_form_key;
+                                }
+                                if (data.data._pods_form) {
+                                    formField.value = data.data._pods_form;
+                                }
+                                meldLog('[meldetool] team form tokens refreshed before submit');
                             }
                         } catch (err) {
-                            meldLog('[meldetool] nonce refresh parse error: ' + err);
+                            meldLog('[meldetool] team token refresh parse error: ' + err);
                         }
                     } else {
-                        meldLog('[meldetool] nonce refresh request failed, status=' + xhr.status);
+                        meldLog('[meldetool] team token refresh request failed, status=' + xhr.status);
                     }
 
                     // Submit-Button klicken statt teamForm.submit(), damit Pods'
@@ -814,74 +823,10 @@ add_action('wp_footer', function() {
                         teamForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
                     }
                 };
-                xhr.send('action=meldetool_refresh_nonce');
+                xhr.send('action=meldetool_refresh_team_form_tokens');
             }, true); // capture=true: feuert vor Pods' eigenem Submit-Handler
 
-            meldLog('[meldetool] team form nonce refresher initialized');
-        }
-
-        /**
-         * Pods zeigt bei mobilem Cache-Fall teils einen generischen Fehlertext,
-         * obwohl der serverseitige Fallback erfolgreich gespeichert hat.
-         * Dieser Rewriter ersetzt den Fehltext nur dann, wenn der Fallback-Cookie gesetzt ist.
-         */
-        function initTeamFormFeedbackRewriter() {
-            var teamForm = findFormNearHeading('Anmeldung Teams')
-                || findFormByFieldSelectors([
-                    'input[name="pods_field_teamname"]',
-                    'input[name="teamname"]'
-                ]);
-            if (!teamForm || !teamForm.parentNode) {
-                return;
-            }
-
-            function hasFallbackCookie() {
-                return document.cookie.indexOf('meldetool_team_fallback_saved=1') !== -1;
-            }
-
-            function clearFallbackCookie() {
-                document.cookie = 'meldetool_team_fallback_saved=; Max-Age=0; path=/';
-            }
-
-            function rewriteIfNeeded() {
-                if (!hasFallbackCookie()) {
-                    return;
-                }
-
-                var errorNodes = teamForm.parentNode.querySelectorAll('.pods-form-ui-message-error, .pods-field-error, .pods-error, .pods-message-error, .error, .notice-error');
-                var rewritten = false;
-
-                Array.prototype.forEach.call(errorNodes, function(node) {
-                    if (!node || !node.textContent) {
-                        return;
-                    }
-                    var txt = String(node.textContent).toLowerCase();
-                    if (txt.indexOf('unable to process request') === -1 && txt.indexOf('zugriff verweigert') === -1) {
-                        return;
-                    }
-
-                    node.classList.remove('pods-form-ui-message-error');
-                    node.classList.add('pods-form-ui-message-success');
-                    node.style.background = '#ecfdf3';
-                    node.style.border = '1px solid #86efac';
-                    node.style.color = '#166534';
-                    node.textContent = 'Formular erfolgreich uebermittelt.';
-                    rewritten = true;
-                });
-
-                if (rewritten) {
-                    clearFallbackCookie();
-                    meldLog('[meldetool] rewritten false-negative Pods error to success after fallback save');
-                }
-            }
-
-            var observer = new MutationObserver(function() {
-                rewriteIfNeeded();
-            });
-            observer.observe(teamForm.parentNode, { childList: true, subtree: true });
-
-            // Initiale Prüfung für bereits gerenderte Meldung
-            rewriteIfNeeded();
+            meldLog('[meldetool] team form token refresher initialized');
         }
 
         var bootCompleted = false;
@@ -902,9 +847,7 @@ add_action('wp_footer', function() {
             }
 
             initFrontendFormSwitcher();
-            // Nonce-Refresh im Frontend deaktiviert: serverseitiger Fallback in meldetool.php
-            // behandelt den mobilen Cache-Fall robuster ohne doppelte Submit-Events.
-            initTeamFormFeedbackRewriter();
+            initTeamFormNonceRefresher();
 
             var teamSelect = findTeamSelect();
             if (!teamSelect) {
