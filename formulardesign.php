@@ -749,86 +749,6 @@ add_action('wp_footer', function() {
             ibanInput.addEventListener('blur', validateTeamIban);
         }
 
-        /**
-         * Token-Refresher: Holt kurz vor dem Team-Submit frische Pods-Hidden-Inputs
-         * (_pods_nonce + _pods_form_key + _pods_form), damit keine gecachten Werte gesendet werden.
-         */
-        function initTeamFormNonceRefresher() {
-            var teamForm = findFormNearHeading('Anmeldung Teams')
-                || findFormByFieldSelectors([
-                    'input[name="pods_field_teamname"]',
-                    'input[name="teamname"]'
-                ]);
-            if (!teamForm) {
-                return;
-            }
-
-            // Flag verhindert rekursive Schleife: nach Nonce-Refresh übergeben wir
-            // die Kontrolle durch Klick auf Submit-Button zurück an Pods' eigenen Handler.
-            var nonceAlreadyRefreshed = false;
-
-            teamForm.addEventListener('submit', function(e) {
-                // Zweiter Durchlauf (nach Refresh): Pods' Handler soll normal laufen
-                if (nonceAlreadyRefreshed) {
-                    nonceAlreadyRefreshed = false;
-                    return;
-                }
-
-                var nonceField = teamForm.querySelector('input[name="_pods_nonce"]');
-                var formKeyField = teamForm.querySelector('input[name="_pods_form_key"]');
-                var formField = teamForm.querySelector('input[name="_pods_form"]');
-                if (!nonceField || !formKeyField || !formField) {
-                    return;
-                }
-
-                // Submit pausieren und frischen Nonce holen
-                e.preventDefault();
-                e.stopImmediatePropagation();
-
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', '<?php echo esc_js(admin_url('admin-ajax.php')); ?>', true);
-                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState !== 4) return;
-                    if (xhr.status === 200) {
-                        try {
-                            var data = JSON.parse(xhr.responseText);
-                            if (data && data.success && data.data) {
-                                if (data.data._pods_nonce) {
-                                    nonceField.value = data.data._pods_nonce;
-                                }
-                                if (data.data._pods_form_key) {
-                                    formKeyField.value = data.data._pods_form_key;
-                                }
-                                if (data.data._pods_form) {
-                                    formField.value = data.data._pods_form;
-                                }
-                                meldLog('[meldetool] team form tokens refreshed before submit');
-                            }
-                        } catch (err) {
-                            meldLog('[meldetool] team token refresh parse error: ' + err);
-                        }
-                    } else {
-                        meldLog('[meldetool] team token refresh request failed, status=' + xhr.status);
-                    }
-
-                    // Submit-Button klicken statt teamForm.submit(), damit Pods'
-                    // eigener AJAX-Handler (submit-Event-Listener) korrekt ausgelöst wird.
-                    nonceAlreadyRefreshed = true;
-                    var submitBtn = teamForm.querySelector('button[type="submit"], input[type="submit"], .pods-form-ui-submit');
-                    if (submitBtn) {
-                        submitBtn.click();
-                    } else {
-                        // Letzter Ausweg: neues Submit-Event auslösen (löst Event-Listener aus)
-                        teamForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-                    }
-                };
-                xhr.send('action=meldetool_refresh_team_form_tokens');
-            }, true); // capture=true: feuert vor Pods' eigenem Submit-Handler
-
-            meldLog('[meldetool] team form token refresher initialized');
-        }
-
         var bootCompleted = false;
 
         /**
@@ -847,7 +767,6 @@ add_action('wp_footer', function() {
             }
 
             initFrontendFormSwitcher();
-            initTeamFormNonceRefresher();
 
             var teamSelect = findTeamSelect();
             if (!teamSelect) {
