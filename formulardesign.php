@@ -9,15 +9,23 @@
  * - Normale Teams: Kapitän-Checkbox sichtbar
  * 
  * Das Script findet das Team-Dropdown-Feld und reagiert auf Änderungen.
+ * 
+ * SICHERHEIT: Lädt nur auf der Anmeldungsseite (/anmeldung/), nicht auf allen Seiten.
+ * Verhindert Info-Leak von Team-IDs in Browser-Console auf Seiten ohne Formulare.
  */
 add_action('wp_footer', function() {
+    // SICHERHEIT: Nur auf der Anmeldungsseite initialisieren, nicht auf allen Seiten
+    $page_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
+    if (stripos($page_uri, '/anmeldung') === false) {
+        return;
+    }
 
     $optional_team_ids = meldetool_get_license_optional_team_ids();
     $iban_bic_team_ids = meldetool_get_iban_bic_visible_team_ids();
     $u17_team_ids      = meldetool_get_u17_team_ids();
     $logging_enabled = meldetool_is_logging_enabled();
     
-    // Debug: sammelt alle Team-IDs und -Namen für Logging (nur wenn Logging aktiv)
+    // Debug: sammelt alle Team-IDs und -Namen für Logging (nur wenn Logging aktiv UND auf Anmeldungsseite)
     $all_teams_debug = array();
     if ($logging_enabled) {
         $all_posts = get_posts(array('post_type' => 'team', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids'));
