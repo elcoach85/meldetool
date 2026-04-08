@@ -33,6 +33,7 @@ function meldetool_debug_log($event, $data = array()) {
  * 
  * Wird verwendet in E-Mail-Benachrichtigungen als Placeholder {teamdetails}
  * Enthält Teammanager, E-Mail, Bankdaten, Rennklasse etc.
+ * HINWEIS: Diese Funktion ist für E-Mail-Versand gedacht, nicht für Logging!
  * 
  * @param int $team_id - WordPress Post-ID des Teams
  * @param string $teamname - Optional: Teamname (wird von Post-Title abgeleitet falls leer)
@@ -66,6 +67,38 @@ function meldetool_get_team_details_text($team_id, $teamname = '') {
         }
         if (!empty($bic)) {
             $details[] = 'BIC: ' . $bic;
+        }
+
+        $terms = get_the_terms($team_id, 'rennklasse');
+        if (!empty($terms) && !is_wp_error($terms)) {
+            $details[] = 'Rennklasse: ' . implode(', ', wp_list_pluck($terms, 'name'));
+        }
+    }
+
+    return implode("\n", $details);
+}
+
+/**
+ * Erstellt formatiertes Text-Snippet mit Team-Detailinformationen für Logging
+ * 
+ * WICHTIG: Bankdaten (IBAN, BIC, Kontoinhaber, E-Mail) werden NICHT geloggt
+ * um zu verhindern, dass sensible Informationen in ungeschützte Textdateien gelangen.
+ * 
+ * @param int $team_id - WordPress Post-ID des Teams
+ * @param string $teamname - Optional: Teamname
+ * @return string Formatierte Team-Details ohne sensible Daten, zeilengetrennt
+ */
+function meldetool_get_team_details_for_logging($team_id, $teamname = '') {
+    $details = array();
+
+    if (!empty($teamname)) {
+        $details[] = 'Teamname: ' . $teamname;
+    }
+
+    if (!empty($team_id)) {
+        $teammanager = get_post_meta($team_id, 'teammanager', true);
+        if (!empty($teammanager)) {
+            $details[] = 'Teammanager: ' . $teammanager;
         }
 
         $terms = get_the_terms($team_id, 'rennklasse');
@@ -160,22 +193,24 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
     }
 
     /**
-     * Alle E-Mails loggen (unabhängig von Erfolg/Fehler)
+     * E-Mails loggen (unabhängig von Erfolg/Fehler)
      * Log-Datei: plugins/meldetool/mail_log.txt
-     * Nützlich für Troubleshooting und Audit-Trail
+     * SICHERHEIT: Nur technische Metadaten werden geloggt, KEINE sensiblen Bankdaten!
      */
-    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
-    $log_entry = date('Y-m-d H:i:s') . " | TEAM_MAIL | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
-    $log_entry .= "To: $email\nSubject: $subject\nHeaders: " . print_r($headers, true) . "\n";
-    if ($orga_result !== null) {
-        $log_entry .= "Orga-Copy-To: $orga_copy_email | " . ($orga_result ? 'SUCCESS' : 'FAIL') . "\n";
+    if (meldetool_is_logging_enabled()) {
+        $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+        $log_entry = date('Y-m-d H:i:s') . " | TEAM_MAIL | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
+        $log_entry .= "Team: $teamname | Recipient: " . str_repeat('*', 3) . "\n";
+        $log_entry .= "Subject: $subject\n";
+        if ($orga_result !== null) {
+            $log_entry .= "Orga-Copy: " . ($orga_result ? 'SUCCESS' : 'FAIL') . "\n";
+        }
+        if (!$mail_result) {
+            $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
+        }
+        $log_entry .= str_repeat('-', 60) . "\n";
+        file_put_contents($logfile, $log_entry, FILE_APPEND);
     }
-    $log_entry .= "Message: $message\n";
-    if (!$mail_result) {
-        $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
-    }
-    $log_entry .= str_repeat('-', 60) . "\n";
-    file_put_contents($logfile, $log_entry, FILE_APPEND);
     return $mail_result;
 }
 
@@ -298,14 +333,16 @@ function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_
 
     $mail_result = wp_mail($rider_email, $subject, $message, $headers);
 
-    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
-    $log_entry = date('Y-m-d H:i:s') . " | RIDER_CONFIRMATION_MAIL | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
-    $log_entry .= "Rider-ID: $rider_id\nTo: $rider_email\nSubject: $subject\n";
-    if (!$mail_result) {
-        $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
+    if (meldetool_is_logging_enabled()) {
+        $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+        $log_entry = date('Y-m-d H:i:s') . " | RIDER_CONFIRMATION_MAIL | " . ($mail_result ? 'SUCCESS' : 'FAIL') . "\n";
+        $log_entry .= "Rider-ID: $rider_id | Team: $teamname | Subject: $subject\n";
+        if (!$mail_result) {
+            $log_entry .= "Error: Mailversand fehlgeschlagen.\n";
+        }
+        $log_entry .= str_repeat('-', 60) . "\n";
+        file_put_contents($logfile, $log_entry, FILE_APPEND);
     }
-    $log_entry .= str_repeat('-', 60) . "\n";
-    file_put_contents($logfile, $log_entry, FILE_APPEND);
 
     return $mail_result;
 }

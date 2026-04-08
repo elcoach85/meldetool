@@ -34,7 +34,7 @@ add_action('admin_init', function() {
         $opts = get_option('meldetool_options', array());
         $val = isset($opts['enable_logging']) ? (bool) $opts['enable_logging'] : false;
         printf('<input type="checkbox" name="meldetool_options[enable_logging]" value="1" %s />', checked(1, (int) $val, false));
-        echo '<span class="description">Aktiviert Debug-Logging im Frontend und Backend (standardmäßig deaktiviert).</span>';
+        echo '<span class="description" style="color: #d63638; font-weight: bold;">⚠️ WARNUNG: Falls aktiviert, werden E-Mail-Versand-Logs in der Datei <code>mail_log.txt</code> protokolliert. Diese ist nur für Debugging gedacht! Logging im Produktivbetrieb deaktivieren, um sensible Daten zu schützen.</span>';
     }, 'meldetool_settings', 'meldetool_main');
 
     add_settings_field('send_confirmation', 'Bestätigungs-E-Mails senden', function() {

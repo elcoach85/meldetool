@@ -242,6 +242,7 @@ register_activation_hook($meldetool_main_file, function() {
     if (!get_option('meldetool_options')) {
         $defaults = array(
             'send_confirmation' => 1,
+            'enable_logging' => 0,  // SICHERHEIT: Logging standardmäßig DEAKTIVIERT. Nur für Debugging aktivieren!
             'from_email' => '',
             'reply_to' => '',
             'confirmation_subject' => 'Bestätigung: Team-Anmeldung erhalten',
