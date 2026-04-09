@@ -358,6 +358,61 @@ add_action('save_post_team', function($post_id, $post, $update) {
     ));
 }, 99, 3);
 
+add_action('save_post_fahrer', function($post_id, $post, $update) {
+    if (!function_exists('meldetool_debug_log')) {
+        return;
+    }
+
+    meldetool_debug_log('ADMIN_SAVE_POST_FAHRER', array(
+        'post_id' => (int) $post_id,
+        'update' => (bool) $update,
+        'post_status' => ($post && isset($post->post_status)) ? (string) $post->post_status : '',
+        'request_action' => isset($_REQUEST['action']) ? sanitize_key((string) $_REQUEST['action']) : '',
+        'request_uri' => isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '',
+    ));
+}, 99, 3);
+
+// Breadcrumb: jeden Admin-Seitenaufruf loggen, damit sichtbar wird ob der Redirect nach einem
+// Save die naechste Seite ueberhaupt bis zu PHP durchreicht (hilft Cache/Server-Probleme ausschliessen).
+add_action('admin_init', function() {
+    if (!function_exists('meldetool_debug_log') || !meldetool_is_logging_enabled()) {
+        return;
+    }
+
+    $uri = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '';
+
+    // Nur relevante Admin-Seiten protokollieren, AJAX separat.
+    $is_ajax = defined('DOING_AJAX') && DOING_AJAX;
+    $page = isset($_GET['page']) ? sanitize_key((string) $_GET['page']) : '';
+    $action = isset($_REQUEST['action']) ? sanitize_key((string) $_REQUEST['action']) : '';
+    $taxonomy = isset($_GET['taxonomy']) ? sanitize_key((string) $_GET['taxonomy']) : '';
+    $post_type = isset($_GET['post_type']) ? sanitize_key((string) $_GET['post_type']) : '';
+
+    // Nur fuer Meldetool-relevante Seiten loggen, sonst zu viel Rauschen.
+    $relevant = (
+        $is_ajax ||
+        in_array($taxonomy, array('rennklasse', 'kategorie'), true) ||
+        in_array($post_type, array('team', 'fahrer'), true) ||
+        in_array($page, array('meldetool-settings', 'meldetool-backup', 'team-fahrer-export'), true) ||
+        (strpos($uri, 'post.php') !== false && (strpos($uri, 'team') !== false || strpos($uri, 'fahrer') !== false)) ||
+        in_array($action, array('editedtag', 'edit-tags', 'editpost', 'pods_admin'), true)
+    );
+
+    if (!$relevant) {
+        return;
+    }
+
+    meldetool_debug_log('ADMIN_REQUEST', array(
+        'request_uri' => $uri,
+        'action' => $action,
+        'taxonomy' => $taxonomy,
+        'post_type' => $post_type,
+        'page' => $page,
+        'is_ajax' => $is_ajax,
+        'message' => isset($_GET['message']) ? (int) $_GET['message'] : '',
+    ));
+});
+
 // Taxonomie-Speicherpfad debuggen (rennklasse/kategorie), um Blank-Page-Faelle einzugrenzen.
 $meldetool_log_term_save = function($term_id, $tt_id, $taxonomy) {
     if (!function_exists('meldetool_debug_log')) {
