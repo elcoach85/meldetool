@@ -411,6 +411,73 @@ add_action('admin_init', function() {
         'is_ajax' => $is_ajax,
         'message' => isset($_GET['message']) ? (int) $_GET['message'] : '',
     ));
+
+    // Loggt Ziel-URL vor dem finalen Redirect nach Save-Aktionen.
+    add_filter('redirect_post_location', function($location, $post_id) {
+        if (function_exists('meldetool_debug_log')) {
+            meldetool_debug_log('REDIRECT_POST_LOCATION', array(
+                'post_id' => (int) $post_id,
+                'location' => (string) $location,
+                'request_uri' => isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '',
+                'request_action' => isset($_REQUEST['action']) ? sanitize_key((string) $_REQUEST['action']) : '',
+                'http_referer' => isset($_SERVER['HTTP_REFERER']) ? (string) $_SERVER['HTTP_REFERER'] : '',
+            ));
+        }
+        return $location;
+    }, 999, 2);
+
+    // Loggt den tatsaechlichen Redirect kurz vor Header-Ausgabe (auch fuer edit-tags.php).
+    add_filter('wp_redirect', function($location, $status) {
+        $loc = (string) $location;
+        $uri_now = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '';
+        $action_now = isset($_REQUEST['action']) ? sanitize_key((string) $_REQUEST['action']) : '';
+
+        $is_relevant_redirect = (
+            strpos($loc, '/wp-admin/post.php') !== false ||
+            strpos($loc, '/wp-admin/edit-tags.php') !== false ||
+            strpos($loc, '/wp-admin/term.php') !== false ||
+            strpos($uri_now, '/wp-admin/post.php') !== false ||
+            strpos($uri_now, '/wp-admin/edit-tags.php') !== false
+        );
+
+        if ($is_relevant_redirect && function_exists('meldetool_debug_log')) {
+            meldetool_debug_log('WP_REDIRECT', array(
+                'status' => (int) $status,
+                'location' => $loc,
+                'request_uri' => $uri_now,
+                'request_action' => $action_now,
+                '_wp_http_referer' => isset($_REQUEST['_wp_http_referer']) ? (string) wp_unslash($_REQUEST['_wp_http_referer']) : '',
+            ));
+        }
+
+        return $location;
+    }, 999, 2);
+
+    // Zeichnet fatale Fehler auf, die zu weisser Seite nach Redirect fuehren koennen.
+    register_shutdown_function(function() {
+        if (!function_exists('meldetool_debug_log')) {
+            return;
+        }
+
+        $err = error_get_last();
+        if (!is_array($err) || empty($err['type'])) {
+            return;
+        }
+
+        $fatal_types = array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR);
+        if (!in_array((int) $err['type'], $fatal_types, true)) {
+            return;
+        }
+
+        meldetool_debug_log('PHP_FATAL_SHUTDOWN', array(
+            'type' => (int) $err['type'],
+            'message' => isset($err['message']) ? (string) $err['message'] : '',
+            'file' => isset($err['file']) ? (string) $err['file'] : '',
+            'line' => isset($err['line']) ? (int) $err['line'] : 0,
+            'request_uri' => isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '',
+            'request_action' => isset($_REQUEST['action']) ? sanitize_key((string) $_REQUEST['action']) : '',
+        ));
+    });
 });
 
 // Taxonomie-Speicherpfad debuggen (rennklasse/kategorie), um Blank-Page-Faelle einzugrenzen.
