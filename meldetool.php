@@ -453,6 +453,50 @@ add_action('admin_init', function() {
         return $location;
     }, 999, 2);
 
+    // End-of-request Diagnose: wurde der Redirect-Header tatsaechlich gesetzt?
+    add_action('shutdown', function() {
+        if (!function_exists('meldetool_debug_log')) {
+            return;
+        }
+
+        $uri_now = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '';
+        $action_now = isset($_REQUEST['action']) ? sanitize_key((string) $_REQUEST['action']) : '';
+
+        $is_relevant = (
+            in_array($action_now, array('editpost', 'editedtag', 'add-tag'), true) ||
+            strpos($uri_now, '/wp-admin/post.php') !== false ||
+            strpos($uri_now, '/wp-admin/edit-tags.php') !== false ||
+            strpos($uri_now, '/wp-admin/admin-ajax.php') !== false
+        );
+
+        if (!$is_relevant) {
+            return;
+        }
+
+        $headers_sent_file = '';
+        $headers_sent_line = 0;
+        $headers_sent = headers_sent($headers_sent_file, $headers_sent_line);
+        $headers = headers_list();
+        $location_header = '';
+
+        foreach ((array) $headers as $header) {
+            if (stripos((string) $header, 'Location:') === 0) {
+                $location_header = (string) $header;
+                break;
+            }
+        }
+
+        meldetool_debug_log('SHUTDOWN_HEADERS', array(
+            'request_uri' => $uri_now,
+            'request_action' => $action_now,
+            'headers_sent' => (bool) $headers_sent,
+            'headers_sent_file' => (string) $headers_sent_file,
+            'headers_sent_line' => (int) $headers_sent_line,
+            'location_header' => $location_header,
+            'headers_count' => is_array($headers) ? count($headers) : 0,
+        ));
+    }, 9999);
+
     // Zeichnet fatale Fehler auf, die zu weisser Seite nach Redirect fuehren koennen.
     register_shutdown_function(function() {
         if (!function_exists('meldetool_debug_log')) {
