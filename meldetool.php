@@ -16,7 +16,6 @@
 defined( 'ABSPATH' ) or die( 'Are you ok?' );
 
 defined( 'MELDETOOL_PLUGIN_DIR' ) || define( 'MELDETOOL_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
-require_once( MELDETOOL_PLUGIN_DIR . 'rest-security.php' );
 
 // Verbindung Taxonomien mit Post Types bei jedem Laden sicherstellen
 add_action('init', function() {
@@ -870,3 +869,4 @@ require_once MELDETOOL_PLUGIN_DIR . 'backup_tools.php';     // Vollbackup Export
 require_once MELDETOOL_PLUGIN_DIR . 'install.php';          // Installation & Aktivierung
 require_once MELDETOOL_PLUGIN_DIR . 'settings.php';         // Admin-Einstellungen Seite
 require_once MELDETOOL_PLUGIN_DIR . 'formulardesign.php';   // Frontend-Formular-Logik
+require_once MELDETOOL_PLUGIN_DIR . 'rest-security.php';    // Zusätzliche Sicherheitsprüfungen für REST-API Endpunkte
