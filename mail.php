@@ -538,11 +538,22 @@ add_action('template_redirect', function() {
  * - Veröffentlichungs-Benachrichtigung: Wird versendet wenn Team publish wird (wp_after_insert_post)
  */
 add_action('pods_api_post_save_pod_item_team', function($data, $pod, $id) {
+    $id = (int) $id;
+    $teamname_debug = isset($data['teamname']) ? $data['teamname'] : null;
+    $email_debug = isset($data['email_manager']) ? $data['email_manager'] : null;
     meldetool_debug_log('TEAM_PODS_SAVE_HOOK_FIRED', array(
-        'id'         => (int) $id,
+        'id'         => $id,
         'data_keys'  => is_array($data) ? array_keys($data) : array(),
+        'has_fields' => is_array($data) && isset($data['fields']) ? true : false,
+        'has_params' => is_array($data) && isset($data['params']) ? true : false,
+        'resolved_teamname_type' => gettype($teamname_debug),
+        'resolved_email_type' => gettype($email_debug),
         'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
     ));
+
+    if (!$id) {
+        return;
+    }
 
     $mail_sent_meta_key = '_meldetool_confirmation_sent';
     // Verhindert Doppelversand: Wenn Meta-Flag bereits gesetzt, Hook beenden

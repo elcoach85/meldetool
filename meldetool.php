@@ -308,6 +308,17 @@ function meldetool_sync_team_post_title($post_id, $teamname = '') {
         'post_title' => $new_title,
         'post_name'  => sanitize_title($new_title),
     ));
+
+    if (function_exists('meldetool_debug_log')) {
+        meldetool_debug_log('TEAM_TITLE_SYNC', array(
+            'post_id' => $post_id,
+            'old_title' => (string) $post->post_title,
+            'new_title' => (string) $new_title,
+            'request_action' => isset($_REQUEST['action']) ? sanitize_key((string) $_REQUEST['action']) : '',
+            'request_uri' => isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '',
+        ));
+    }
+
     unset($is_updating[$post_id]);
 }
 
@@ -324,6 +335,49 @@ add_action('save_post_team', function($post_id, $post, $update) {
     meldetool_sync_team_post_title($post_id);
 
 }, 10, 3);
+
+// Admin-Speicherpfad debuggen (nur wenn Logging in den Meldetool-Settings aktiviert ist).
+add_action('save_post_team', function($post_id, $post, $update) {
+    if (!function_exists('meldetool_debug_log')) {
+        return;
+    }
+
+    $posted_keys = array();
+    if (isset($_POST) && is_array($_POST)) {
+        $posted_keys = array_keys($_POST);
+    }
+
+    meldetool_debug_log('ADMIN_SAVE_POST_TEAM', array(
+        'post_id' => (int) $post_id,
+        'update' => (bool) $update,
+        'post_status' => ($post && isset($post->post_status)) ? (string) $post->post_status : '',
+        'request_action' => isset($_REQUEST['action']) ? sanitize_key((string) $_REQUEST['action']) : '',
+        'request_uri' => isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '',
+        'teamname_meta_now' => (string) get_post_meta((int) $post_id, 'teamname', true),
+        'posted_keys' => $posted_keys,
+    ));
+}, 99, 3);
+
+// Taxonomie-Speicherpfad debuggen (rennklasse/kategorie), um Blank-Page-Faelle einzugrenzen.
+$meldetool_log_term_save = function($term_id, $tt_id, $taxonomy) {
+    if (!function_exists('meldetool_debug_log')) {
+        return;
+    }
+
+    if (!in_array((string) $taxonomy, array('rennklasse', 'kategorie'), true)) {
+        return;
+    }
+
+    meldetool_debug_log('ADMIN_TERM_SAVE', array(
+        'taxonomy' => (string) $taxonomy,
+        'term_id' => (int) $term_id,
+        'tt_id' => (int) $tt_id,
+        'request_action' => isset($_REQUEST['action']) ? sanitize_key((string) $_REQUEST['action']) : '',
+        'request_uri' => isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '',
+    ));
+};
+add_action('created_term', $meldetool_log_term_save, 10, 3);
+add_action('edited_term', $meldetool_log_term_save, 10, 3);
 
 
 
