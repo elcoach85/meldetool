@@ -3,14 +3,24 @@
 
 # Block direct access to mail_log.txt and other sensitive log files
 <FilesMatch "^mail_log\.txt$">
-    Order allow,deny
-    Deny from all
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
 # Block direct access to any plaintext log files in this directory
 <FilesMatch "\.log\.txt$">
-    Order allow,deny
-    Deny from all
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
 # Return 404 for attempts to access these files

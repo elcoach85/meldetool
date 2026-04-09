@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Plugin Name: Meldetool
  * Description: A solution to let team managers create their team and add participants to the teams.
@@ -16,6 +16,7 @@
 defined( 'ABSPATH' ) or die( 'Are you ok?' );
 
 defined( 'MELDETOOL_PLUGIN_DIR' ) || define( 'MELDETOOL_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+require_once( MELDETOOL_PLUGIN_DIR . 'rest-security.php' );
 
 // Verbindung Taxonomien mit Post Types bei jedem Laden sicherstellen
 add_action('init', function() {
@@ -23,6 +24,34 @@ add_action('init', function() {
     register_taxonomy_for_object_type('rennklasse', 'team');
 });
 
+/**
+ * Registriere Meta-Felder als nicht öffentlich (REST API / unauthentifiziert)
+ * 
+ * SICHERHEIT: Bankdaten (IBAN, BIC, Kontoinhaber) und private E-Mails
+ * sollten nicht via REST API oder für unauthentifizierte Nutzer einsehbar sein.
+ */
+add_action('init', function() {
+    // Team: Bankdaten und Manager-Email schützen
+    $team_sensitive = array('iban', 'bic', 'kontoinhaber', 'email_manager');
+    foreach ($team_sensitive as $field) {
+        register_meta('post', $field, array(
+            'type'           => 'string',
+            'object_subtype' => 'team',
+            'single'         => true,
+            'show_in_rest'   => false,
+        ));
+    }
+    // Fahrer: Email und Bankdaten schützen
+    $rider_sensitive = array('iban', 'bic', 'kontoinhaber', 'email_rider');
+    foreach ($rider_sensitive as $field) {
+        register_meta('post', $field, array(
+            'type'           => 'string',
+            'object_subtype' => 'fahrer',
+            'single'         => true,
+            'show_in_rest'   => false,
+        ));
+    }
+});
 /**
  * Liefert IDs aller Teams, bei denen Lizenznummer optional ist
  * 
@@ -435,7 +464,7 @@ add_action('manage_team_posts_custom_column', function($column, $post_id) {
  * Admin Listen: CSS-Styling für kompakte Darstellung
  * 
  * Verkürzt Zeilenhöhe und versteckt Action-Links ("Bearbeiten", "Papierkorb", etc)
- * für bessere Übersichlichkeit bei vielen Einträgen
+ * für bessere Übersichtlichkeit bei vielen Einträgen
  */
 add_action('admin_head', function () {
     $screen = get_current_screen();
