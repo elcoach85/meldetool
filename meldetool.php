@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Plugin Name: Meldetool
  * Description: A solution to let team managers create their team and add participants to the teams.
