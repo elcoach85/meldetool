@@ -12,23 +12,6 @@
 defined( 'ABSPATH' ) or die( 'Are you ok?' );
 
 /**
- * Schreibt optionale Debug-Eintraege in mail_log.txt, wenn Logging in den Settings aktiv ist.
- */
-function meldetool_debug_log($event, $data = array()) {
-    if (!function_exists('meldetool_is_logging_enabled') || !meldetool_is_logging_enabled()) {
-        return;
-    }
-
-    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
-    $entry = date('Y-m-d H:i:s') . ' | DEBUG | ' . $event . "\n";
-    if (!empty($data)) {
-        $entry .= print_r($data, true) . "\n";
-    }
-    $entry .= str_repeat('-', 60) . "\n";
-    file_put_contents($logfile, $entry, FILE_APPEND);
-}
-
-/**
  * Erstellt formatiertes Text-Snippet mit Team-Detailinformationen
  * 
  * Wird verwendet in E-Mail-Benachrichtigungen als Placeholder {teamdetails}
