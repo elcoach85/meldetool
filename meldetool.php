@@ -17,6 +17,104 @@ defined( 'ABSPATH' ) or die( 'Are you ok?' );
 
 defined( 'MELDETOOL_PLUGIN_DIR' ) || define( 'MELDETOOL_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
+/**
+ * Schreibt strukturierte Debug-Eintraege in die bestehende Logdatei.
+ *
+ * Logging erfolgt nur, wenn es in den Meldetool-Einstellungen aktiviert ist.
+ */
+function meldetool_debug_log($event, $context = array()) {
+    if (!function_exists('meldetool_is_logging_enabled') || !meldetool_is_logging_enabled()) {
+        return;
+    }
+
+    $logfile = MELDETOOL_PLUGIN_DIR . 'mail_log.txt';
+    $payload = wp_json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($payload)) {
+        $payload = '{}';
+    }
+
+    $line = date('Y-m-d H:i:s') . ' | ' . $event . ' | ' . $payload . "\n";
+    file_put_contents($logfile, $line, FILE_APPEND);
+}
+
+/**
+ * Session-Diagnose fuer anonyme Frontend-Formulare auf /anmeldung.
+ *
+ * Hilft beim Eingrenzen von Pods-Fehlern wie
+ * "Anonymous form submissions are not compatible with sessions on this site".
+ */
+add_action('template_redirect', function() {
+    if (!function_exists('meldetool_is_logging_enabled') || !meldetool_is_logging_enabled()) {
+        return;
+    }
+
+    if (is_admin()) {
+        return;
+    }
+
+    $uri = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '';
+    if (stripos($uri, '/anmeldung') === false) {
+        return;
+    }
+
+    $headers_file = '';
+    $headers_line = 0;
+    $headers_sent = headers_sent($headers_file, $headers_line);
+
+    $save_path = function_exists('session_save_path') ? (string) session_save_path() : '';
+    $is_tcp_path = (stripos($save_path, 'tcp://') === 0);
+
+    $diag = array(
+        'uri' => $uri,
+        'method' => isset($_SERVER['REQUEST_METHOD']) ? (string) $_SERVER['REQUEST_METHOD'] : '',
+        'is_logged_in' => is_user_logged_in() ? 1 : 0,
+        'headers_sent' => $headers_sent ? 1 : 0,
+        'headers_file' => $headers_sent ? wp_normalize_path((string) $headers_file) : '',
+        'headers_line' => $headers_sent ? (int) $headers_line : 0,
+        'session_status' => function_exists('session_status') ? (int) session_status() : -1,
+        'session_save_path' => $save_path,
+        'session_save_path_exists' => ($save_path !== '' && !$is_tcp_path) ? (file_exists($save_path) ? 1 : 0) : null,
+        'session_save_path_writable' => ($save_path !== '' && !$is_tcp_path) ? (is_writable($save_path) ? 1 : 0) : null,
+        'pods_session_auto_start' => function_exists('pods_session_auto_start') ? pods_session_auto_start() : 'n/a',
+        'pods_can_use_sessions_env' => function_exists('pods_can_use_sessions') ? (pods_can_use_sessions(true) ? 1 : 0) : null,
+        'pods_session_id_empty' => function_exists('pods_session_id') ? ((pods_session_id() === '') ? 1 : 0) : null,
+    );
+
+    meldetool_debug_log('PODS_SESSION_DIAG', $diag);
+}, 20);
+
+/**
+ * Erkennt die konkrete Pods-Fehlermeldung im gerenderten Seiteninhalt
+ * und loggt einen Marker zur Korrelation mit Session-Diagnosewerten.
+ */
+add_filter('the_content', function($content) {
+    if (!function_exists('meldetool_is_logging_enabled') || !meldetool_is_logging_enabled()) {
+        return $content;
+    }
+
+    if (is_admin() || !is_string($content) || $content === '') {
+        return $content;
+    }
+
+    $uri = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '';
+    if (stripos($uri, '/anmeldung') === false) {
+        return $content;
+    }
+
+    if (
+        stripos($content, 'Anonyme Formularübermittlungen') !== false
+        || stripos($content, 'Anonymous form submissions are not compatible with sessions') !== false
+    ) {
+        meldetool_debug_log('PODS_FORM_RENDER_ERROR', array(
+            'uri' => $uri,
+            'is_logged_in' => is_user_logged_in() ? 1 : 0,
+            'contains_pods_form_markup' => (stripos($content, 'pods-form') !== false) ? 1 : 0,
+        ));
+    }
+
+    return $content;
+}, 20);
+
 // Verbindung Taxonomien mit Post Types bei jedem Laden sicherstellen
 add_action('init', function() {
     register_taxonomy_for_object_type('kategorie', 'fahrer');
