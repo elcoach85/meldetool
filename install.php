@@ -216,6 +216,12 @@ register_activation_hook($meldetool_main_file, function() {
         }
     }
 
+    // Pods-Sicherheitseinstellung fuer anonyme Frontend-Formulare:
+    // Session-Schutz aktivieren, damit Pods die Formulare fuer ausgeloggte Nutzer rendern kann.
+    if (function_exists('pods_update_setting')) {
+        pods_update_setting('session_auto_start', '1');
+    }
+
     // Verbindung Taxonomien mit Post Types sicherstellen
     register_taxonomy_for_object_type('rennklasse', 'team');
     register_taxonomy_for_object_type('kategorie', 'fahrer');
@@ -258,13 +264,13 @@ register_activation_hook($meldetool_main_file, function() {
         $page_content .= "<h2 class=\"wp-block-heading\">Anmeldung Teams</h2>\n";
         $page_content .= "<!-- /wp:heading -->\n\n";
         $page_content .= "<!-- wp:shortcode -->\n";
-        $page_content .= "[pods-form name=\"team\" fields=\"teamname,team-rennklasse,teammanager,email_manager,iban,bic,kontoinhaber\"]\n";
+        $page_content .= "[pods-form name=\"team\" fields=\"teamname,team-rennklasse,teammanager,email_manager,iban,bic,kontoinhaber\" encrypted=\"0\" logged_in=\"false\"]\n";
         $page_content .= "<!-- /wp:shortcode -->\n\n";
         $page_content .= "<!-- wp:heading -->\n";
         $page_content .= "<h2 class=\"wp-block-heading\">Anmeldung Fahrer*innen</h2>\n";
         $page_content .= "<!-- /wp:heading -->\n\n";
         $page_content .= "<!-- wp:shortcode -->\n";
-        $page_content .= "[pods-form name=\"fahrer\" fields=\"nachname,vorname,team,fahrer-kategorie,lizenznummer,uci_id,ist_kapitaen,email_rider,nationalitaet,iban,bic,kontoinhaber,etappen_auswahl\"]\n";
+        $page_content .= "[pods-form name=\"fahrer\" fields=\"nachname,vorname,team,fahrer-kategorie,lizenznummer,uci_id,ist_kapitaen,email_rider,nationalitaet,iban,bic,kontoinhaber,etappen_auswahl\" encrypted=\"0\" logged_in=\"false\"]\n";
         $page_content .= "<!-- /wp:shortcode -->\n";
 
         wp_insert_post(array(
