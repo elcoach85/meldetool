@@ -488,6 +488,8 @@ add_action('save_post_fahrer', function($post_id, $post, $update) {
 add_filter('manage_fahrer_posts_columns', function($columns) {
     $columns['nachname'] = 'Nachname';
     $columns['vorname'] = 'Vorname';
+    $columns['email_rider'] = 'E-Mail';
+    $columns['nationalitaet'] = 'Nationalität';
     $columns['team'] = 'Team';
 	$columns['rennklasse'] = 'Rennklasse';
 	$columns['kategorie'] = 'Kategorie';
@@ -528,6 +530,8 @@ add_action('manage_fahrer_posts_custom_column', function($column, $post_id) {
     switch ($column) {
         case 'vorname':
         case 'nachname':
+        case 'email_rider':
+        case 'nationalitaet':
         case 'uci_id':
         case 'lizenznummer':
 		case 'etappen_auswahl':
