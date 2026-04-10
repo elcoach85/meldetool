@@ -689,17 +689,79 @@ add_action('pre_get_posts', function ($query) {
         ]);
     }
 	
-	# nach teams sortieren
-    if ($query->get('orderby') === 'team') {
-        $query->set('meta_key', 'team');
+    // UCI-ID als sortierbare Admin-Spalte
+    if ($query->get('orderby') === 'uci_id') {
+        $query->set('meta_key', 'uci_id');
         $query->set('orderby', 'meta_value');
     }
 });
 
 add_filter('manage_edit-fahrer_sortable_columns', function ($columns) {
     $columns['team'] = 'team';
+    $columns['rennklasse'] = 'rennklasse';
+    $columns['kategorie'] = 'kategorie';
+    $columns['uci_id'] = 'uci_id';
     return $columns;
 });
+
+/**
+ * Standard-Sortierung in Fahrer-Adminliste:
+ * 1) Rennklasse, 2) Team, 3) Kategorie.
+ */
+add_filter('posts_clauses', function($clauses, $query) {
+    if (!is_admin() || !$query->is_main_query()) {
+        return $clauses;
+    }
+
+    global $pagenow;
+    if ($pagenow !== 'edit.php') {
+        return $clauses;
+    }
+
+    if ($query->get('post_type') !== 'fahrer') {
+        return $clauses;
+    }
+
+    $orderby = (string) $query->get('orderby');
+
+    // Nur fuer Default- oder explizite Listen-Sortierung dieser drei Spalten eingreifen.
+    if (!in_array($orderby, array('', 'team', 'rennklasse', 'kategorie'), true)) {
+        return $clauses;
+    }
+
+    $order = strtoupper((string) $query->get('order'));
+    if (!in_array($order, array('ASC', 'DESC'), true)) {
+        $order = 'ASC';
+    }
+
+    global $wpdb;
+
+    $clauses['join'] .= "\nLEFT JOIN {$wpdb->postmeta} AS mt_team ON ({$wpdb->posts}.ID = mt_team.post_id AND mt_team.meta_key = 'team')";
+    $clauses['join'] .= "\nLEFT JOIN {$wpdb->posts} AS team_post ON (team_post.ID = CAST(mt_team.meta_value AS UNSIGNED))";
+
+    $clauses['join'] .= "\nLEFT JOIN {$wpdb->term_relationships} AS tr_rk ON (team_post.ID = tr_rk.object_id)";
+    $clauses['join'] .= "\nLEFT JOIN {$wpdb->term_taxonomy} AS tt_rk ON (tr_rk.term_taxonomy_id = tt_rk.term_taxonomy_id AND tt_rk.taxonomy = 'rennklasse')";
+    $clauses['join'] .= "\nLEFT JOIN {$wpdb->terms} AS t_rk ON (tt_rk.term_id = t_rk.term_id)";
+
+    $clauses['join'] .= "\nLEFT JOIN {$wpdb->term_relationships} AS tr_kat ON ({$wpdb->posts}.ID = tr_kat.object_id)";
+    $clauses['join'] .= "\nLEFT JOIN {$wpdb->term_taxonomy} AS tt_kat ON (tr_kat.term_taxonomy_id = tt_kat.term_taxonomy_id AND tt_kat.taxonomy = 'kategorie')";
+    $clauses['join'] .= "\nLEFT JOIN {$wpdb->terms} AS t_kat ON (tt_kat.term_id = t_kat.term_id)";
+
+    $clauses['groupby'] = "{$wpdb->posts}.ID";
+
+    if ($orderby === 'team') {
+        $clauses['orderby'] = "COALESCE(team_post.post_title, 'ZZZ') {$order}, {$wpdb->posts}.post_title ASC";
+    } elseif ($orderby === 'rennklasse') {
+        $clauses['orderby'] = "COALESCE(t_rk.name, 'ZZZ') {$order}, COALESCE(team_post.post_title, 'ZZZ') ASC, {$wpdb->posts}.post_title ASC";
+    } elseif ($orderby === 'kategorie') {
+        $clauses['orderby'] = "COALESCE(t_kat.name, 'ZZZ') {$order}, COALESCE(team_post.post_title, 'ZZZ') ASC, {$wpdb->posts}.post_title ASC";
+    } else {
+        // Default-Sortierung: Rennklasse -> Team -> Kategorie.
+        $clauses['orderby'] = "COALESCE(t_rk.name, 'ZZZ') ASC, COALESCE(team_post.post_title, 'ZZZ') ASC, COALESCE(t_kat.name, 'ZZZ') ASC, {$wpdb->posts}.post_title ASC";
+    }
+
+    return $clauses;
+}, 20, 2);
 
 
 
