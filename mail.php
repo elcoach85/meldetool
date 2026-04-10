@@ -500,6 +500,14 @@ add_action('template_redirect', function() {
 
     // Bestätigung nur einmal verarbeiten
     if (!get_post_meta($rider_id, '_meldetool_rider_email_confirmed', true)) {
+        $rider_post = get_post($rider_id);
+        if ($rider_post && $rider_post->post_type === 'fahrer' && $rider_post->post_status !== 'publish') {
+            wp_update_post(array(
+                'ID' => $rider_id,
+                'post_status' => 'publish',
+            ));
+        }
+
         update_post_meta($rider_id, '_meldetool_rider_email_confirmed', 1);
         delete_post_meta($rider_id, '_meldetool_rider_confirmation_token'); // Token nach Verwendung löschen
         meldetool_send_rider_details_mail($rider_id); // Fahrerdetails-Mail versenden
