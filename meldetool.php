@@ -57,30 +57,72 @@ add_action('template_redirect', function() {
         return;
     }
 
+    $uri_decoded = rawurldecode($uri);
+    $contains_embedded_url = (
+        stripos($uri, "'https:/") !== false
+        || stripos($uri, '&apos;https:/') !== false
+        || stripos($uri_decoded, "'https:/") !== false
+        || stripos($uri_decoded, '&apos;https:/') !== false
+    );
+
     $headers_file = '';
     $headers_line = 0;
     $headers_sent = headers_sent($headers_file, $headers_line);
 
     $save_path = function_exists('session_save_path') ? (string) session_save_path() : '';
     $is_tcp_path = (stripos($save_path, 'tcp://') === 0);
+    $tmp_dir = function_exists('sys_get_temp_dir') ? (string) sys_get_temp_dir() : '';
+    $session_status_value = function_exists('session_status') ? (int) session_status() : -1;
+    $session_status_text = 'unknown';
+    if (defined('PHP_SESSION_DISABLED') && $session_status_value === PHP_SESSION_DISABLED) {
+        $session_status_text = 'disabled';
+    } elseif (defined('PHP_SESSION_NONE') && $session_status_value === PHP_SESSION_NONE) {
+        $session_status_text = 'none';
+    } elseif (defined('PHP_SESSION_ACTIVE') && $session_status_value === PHP_SESSION_ACTIVE) {
+        $session_status_text = 'active';
+    }
 
     $diag = array(
         'uri' => $uri,
+        'uri_decoded' => $uri_decoded,
         'method' => isset($_SERVER['REQUEST_METHOD']) ? (string) $_SERVER['REQUEST_METHOD'] : '',
         'is_logged_in' => is_user_logged_in() ? 1 : 0,
+        'contains_embedded_url' => $contains_embedded_url ? 1 : 0,
+        'http_referer' => isset($_SERVER['HTTP_REFERER']) ? (string) wp_unslash($_SERVER['HTTP_REFERER']) : '',
+        'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? (string) wp_unslash($_SERVER['HTTP_USER_AGENT']) : '',
         'headers_sent' => $headers_sent ? 1 : 0,
         'headers_file' => $headers_sent ? wp_normalize_path((string) $headers_file) : '',
         'headers_line' => $headers_sent ? (int) $headers_line : 0,
-        'session_status' => function_exists('session_status') ? (int) session_status() : -1,
+        'session_status' => $session_status_value,
+        'session_status_text' => $session_status_text,
+        'php_version' => function_exists('phpversion') ? (string) phpversion() : '',
+        'php_sapi' => function_exists('php_sapi_name') ? (string) php_sapi_name() : '',
+        'loaded_ini' => function_exists('php_ini_loaded_file') ? (string) php_ini_loaded_file() : '',
+        'open_basedir' => (string) ini_get('open_basedir'),
+        'session_save_handler' => (string) ini_get('session.save_handler'),
+        'session_cookie_secure' => (string) ini_get('session.cookie_secure'),
+        'session_use_strict_mode' => (string) ini_get('session.use_strict_mode'),
         'session_save_path' => $save_path,
         'session_save_path_exists' => ($save_path !== '' && !$is_tcp_path) ? (file_exists($save_path) ? 1 : 0) : null,
         'session_save_path_writable' => ($save_path !== '' && !$is_tcp_path) ? (is_writable($save_path) ? 1 : 0) : null,
+        'sys_temp_dir' => $tmp_dir,
+        'sys_temp_dir_exists' => ($tmp_dir !== '') ? (file_exists($tmp_dir) ? 1 : 0) : null,
+        'sys_temp_dir_writable' => ($tmp_dir !== '') ? (is_writable($tmp_dir) ? 1 : 0) : null,
         'pods_session_auto_start' => function_exists('pods_session_auto_start') ? pods_session_auto_start() : 'n/a',
         'pods_can_use_sessions_env' => function_exists('pods_can_use_sessions') ? (pods_can_use_sessions(true) ? 1 : 0) : null,
         'pods_session_id_empty' => function_exists('pods_session_id') ? ((pods_session_id() === '') ? 1 : 0) : null,
     );
 
     meldetool_debug_log('PODS_SESSION_DIAG', $diag);
+
+    if ($contains_embedded_url) {
+        meldetool_debug_log('REQUEST_URI_ANOMALY', array(
+            'uri' => $uri,
+            'uri_decoded' => $uri_decoded,
+            'http_referer' => isset($_SERVER['HTTP_REFERER']) ? (string) wp_unslash($_SERVER['HTTP_REFERER']) : '',
+            'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? (string) wp_unslash($_SERVER['HTTP_USER_AGENT']) : '',
+        ));
+    }
 }, 20);
 
 /**
