@@ -373,7 +373,14 @@ function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_
         // Plain-Text in HTML ueberfuehren und Preisschema anhaengen
         $message_has_html = (bool) preg_match('/<[^>]+>/', (string) $message);
         if (!$message_has_html) {
-            $message = nl2br(esc_html((string) $message));
+            $escaped_message = esc_html((string) $message);
+            $escaped_confirm_url = esc_html((string) $confirm_url);
+            $confirm_link = '<a href="' . esc_url((string) $confirm_url) . '">' . $escaped_confirm_url . '</a>';
+            $escaped_message = str_replace($escaped_confirm_url, $confirm_link, $escaped_message);
+            $message = nl2br($escaped_message);
+        } elseif (strpos($message, '<a ') === false && strpos($message, (string) $confirm_url) !== false) {
+            $confirm_link = '<a href="' . esc_url((string) $confirm_url) . '">' . esc_html((string) $confirm_url) . '</a>';
+            $message = str_replace((string) $confirm_url, $confirm_link, (string) $message);
         }
         if (strpos($message, 'meldetool-price-schema') === false) {
             $message .= '<br><br>' . meldetool_get_price_schema_table_text();
