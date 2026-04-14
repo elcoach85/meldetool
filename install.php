@@ -246,13 +246,33 @@ register_activation_hook($meldetool_main_file, function() {
     }
     // Meldetool-Optionen mit Defaults anlegen, falls nicht vorhanden
     if (!get_option('meldetool_options')) {
+        $mail_defaults = function_exists('meldetool_default_mail_texts')
+            ? meldetool_default_mail_texts()
+            : array(
+                'confirmation_subject' => '[Meldetool] Standard-Bestaetigung',
+                'confirmation_message' => "Hallo {teammanager},\n\ndies ist eine Standard-Nachricht aus dem Meldetool.\n\nTeam: {teamname}\n\nBitte passen Sie diesen Text in den Einstellungen an.",
+                'confirmation_subject_publish' => '[Meldetool] Standard-Veroeffentlichung',
+                'confirmation_message_publish' => "Hallo {teammanager},\n\ndies ist eine Standard-Nachricht zur Veroeffentlichung.\n\nTeam: {teamname}\n\nBitte passen Sie diesen Text in den Einstellungen an.",
+                'rider_confirmation_subject' => '[Meldetool] Standard-Fahrerbestaetigung',
+                'rider_confirmation_message' => "Hallo {ridername},\n\ndies ist eine Standard-Nachricht zur Fahrerbestaetigung.\n\nTeam: {teamname}\nLink: {confirm_url}\n\nBitte passen Sie diesen Text in den Einstellungen an.",
+                'rider_details_subject' => '[Meldetool] Standard-Fahrerdetails',
+                'rider_details_message' => "Hallo {ridername},\n\ndies ist eine Standard-Nachricht zu Fahrerdetails.\n\nTeam: {teamname}\n\n{riderdetails}\n\nBitte passen Sie diesen Text in den Einstellungen an.",
+            );
+
         $defaults = array(
             'send_confirmation' => 1,
             'enable_logging' => 0,  // SICHERHEIT: Logging standardmäßig DEAKTIVIERT. Nur für Debugging aktivieren!
             'from_email' => '',
             'reply_to' => '',
-            'confirmation_subject' => 'Bestätigung: Team-Anmeldung erhalten',
-            'confirmation_message' => "Hallo {teammanager},\n\nIhr Team '{teamname}' wurde erfolgreich für die Race Days Stuttgart angemeldet.\n\nFalls Änderungen nötig sind, können Sie sich bei uns melden.\n\nMit freundlichen Grüßen\nIhr Race-Days-Team"
+            'cc_email' => '',
+            'confirmation_subject' => $mail_defaults['confirmation_subject'],
+            'confirmation_message' => $mail_defaults['confirmation_message'],
+            'confirmation_subject_publish' => $mail_defaults['confirmation_subject_publish'],
+            'confirmation_message_publish' => $mail_defaults['confirmation_message_publish'],
+            'rider_confirmation_subject' => $mail_defaults['rider_confirmation_subject'],
+            'rider_confirmation_message' => $mail_defaults['rider_confirmation_message'],
+            'rider_details_subject' => $mail_defaults['rider_details_subject'],
+            'rider_details_message' => $mail_defaults['rider_details_message'],
         );
         add_option('meldetool_options', $defaults);
     }
