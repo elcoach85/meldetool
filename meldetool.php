@@ -246,6 +246,19 @@ function meldetool_get_iban_bic_visible_team_ids() {
 }
 
 /**
+ * Prüft ob ein Teamname auf ein Einzelstarter-Team hinweist.
+ *
+ * Wird in Mail-Versand und Formulardesign verwendet, um Einzelstarter-spezifisches
+ * Verhalten (Preistabelle, IBAN-Felder, HTML-Mails) zu aktivieren.
+ *
+ * @param string $teamname Teamname (Post-Titel oder Meta-Wert)
+ * @return bool true wenn der Name "Einzelstarter" enthält (Groß-/Kleinschreibung egal)
+ */
+function meldetool_is_einzelstarter_team($teamname) {
+    return stripos((string) $teamname, 'Einzelstarter') !== false;
+}
+
+/**
  * Liefert IDs aller Teams, die einer U17-Rennklasse zugeordnet sind
  *
  * @return array Team-IDs mit Etappenauswahl-Pflicht

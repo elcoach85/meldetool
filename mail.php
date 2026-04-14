@@ -170,7 +170,7 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
         $message .= "\n\nTeamdetails:\n" . $team_details;
     }
 
-    // Preisschema immer an Mails anhaengen, die an den Teammanager selbst gehen.
+    // Preisschema anhaengen fuer Teammanager-Mails und fuer Einzelstarter-Fahrer.
     $is_team_manager_recipient = false;
     if (!empty($team_id) && !empty($email)) {
         $manager_email = get_post_meta((int) $team_id, 'email_manager', true);
@@ -178,11 +178,10 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
             $is_team_manager_recipient = true;
         }
     }
+    $is_einzelstarter = meldetool_is_einzelstarter_team($teamname);
     $append_price_schema = false;
-    if ($is_team_manager_recipient) {
-        if (strpos($message, 'meldetool-price-schema') === false) {
-            $append_price_schema = true;
-        }
+    if (($is_team_manager_recipient || $is_einzelstarter) && strpos($message, 'meldetool-price-schema') === false) {
+        $append_price_schema = true;
     }
 
     // E-Mail-Header zusammenstellen (From, Reply-To, CC)
@@ -351,7 +350,9 @@ function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_
         $message
     );
 
-    $headers = array('Content-Type: text/plain; charset=UTF-8');
+    $is_einzelstarter = meldetool_is_einzelstarter_team($teamname);
+    $content_type = $is_einzelstarter ? 'text/html' : 'text/plain';
+    $headers = array('Content-Type: ' . $content_type . '; charset=UTF-8');
     if (!empty($from_email) && is_email($from_email)) {
         $headers[] = 'From: ' . $from_name . ' <' . $from_email . '>';
     }
@@ -359,9 +360,19 @@ function meldetool_send_rider_confirmation_mail($rider_id, $rider_email, $rider_
         $headers[] = 'Reply-To: ' . $opts['reply_to'];
     }
 
-    // HTML-Entitaeten dekodieren, da Mail als Plain Text versendet wird
     $subject = html_entity_decode($subject, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $message = html_entity_decode($message, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    if ($is_einzelstarter) {
+        // Plain-Text in HTML ueberfuehren und Preisschema anhaengen
+        $message_has_html = (bool) preg_match('/<[^>]+>/', (string) $message);
+        if (!$message_has_html) {
+            $message = nl2br(esc_html((string) $message));
+        }
+        if (strpos($message, 'meldetool-price-schema') === false) {
+            $message .= '<br><br>' . meldetool_get_price_schema_table_text();
+        }
+    }
 
     $mail_result = wp_mail($rider_email, $subject, $message, $headers);
 
