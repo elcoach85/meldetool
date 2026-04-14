@@ -94,6 +94,23 @@ function meldetool_get_team_details_for_logging($team_id, $teamname = '') {
 }
 
 /**
+ * Liefert das Preisschema als Tabelle fuer Teammanager-Mails
+ *
+ * @return string Tabelle als Plain-Text/Markdown
+ */
+function meldetool_get_price_schema_table_text() {
+    return "Preisschema:\n\n"
+    . "| Klasse | Nenngeld |\n"
+    . "|-------|----------|\n"
+    . "| Jugend U17 m/w - 4er Team | 120 EUR |\n"
+    . "| Junioren U19 m/w - 4er Team | 120 EUR |\n"
+    . "| Elite Frauen - mind. 4 Sportlerinnen | 360 EUR |\n"
+    . "| Elite Frauen - je weitere Sportlerin | 90 EUR |\n"
+    . "| Elite Frauen - 8er Team | 720 EUR |\n"
+    . "| Elite Amateure - 6er Team | 540 EUR |";
+}
+
+/**
  * Versendet E-Mail an Teammanager mit Platzhalter-Ersetzung und Logging
  * 
  * Platzhalter die ersetzt werden:
@@ -144,6 +161,21 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
     // Team-Details automatisch anhängen, wenn nicht explizit im Template und vorhanden
     if ($append_team_details && !$has_teamdetails_placeholder && !empty($team_details)) {
         $message .= "\n\nTeamdetails:\n" . $team_details;
+    }
+
+    // Preisschema immer an Mails anhaengen, die an den Teammanager selbst gehen.
+    $is_team_manager_recipient = false;
+    if (!empty($team_id) && !empty($email)) {
+        $manager_email = get_post_meta((int) $team_id, 'email_manager', true);
+        if (!empty($manager_email) && strcasecmp((string) $manager_email, (string) $email) === 0) {
+            $is_team_manager_recipient = true;
+        }
+    }
+    if ($is_team_manager_recipient) {
+        $price_table = meldetool_get_price_schema_table_text();
+        if (strpos($message, '| Klasse | Nenngeld |') === false) {
+            $message .= "\n\n" . $price_table;
+        }
     }
 
     // E-Mail-Header zusammenstellen (From, Reply-To, CC)
