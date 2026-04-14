@@ -110,7 +110,11 @@ function meldetool_get_price_schema_table_text() {
     . '<tr><td>Elite Frauen für jede weitere Sportlerin</td><td>90 €</td></tr>'
     . '<tr><td>Elite Frauen für ein 8er Team</td><td>720 €</td></tr>'
     . '<tr><td>Elite Amateure für ein 6er Team</td><td>540 €</td></tr>'
-        . '</tbody></table>';
+        . '</tbody></table>'
+        . '<p style="margin:16px 0 4px;">Das Nenngeld ist bis zum Meldeschluss vorab auf folgendes Konto zu überweisen.</p>'
+        . '<p style="margin:0 0 4px;"><strong>Kontoinhaber:</strong> Erster Radfahrerverein Stuttgardia 1886 e.V.</p>'
+        . '<p style="margin:0 0 4px;"><strong>IBAN:</strong> DE17600901000168497026</p>'
+        . '<p style="margin:0;"><strong>BIC:</strong> VOBADESSXXX</p>';
 }
 
 /**
