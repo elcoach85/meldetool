@@ -96,18 +96,20 @@ function meldetool_get_team_details_for_logging($team_id, $teamname = '') {
 /**
  * Liefert das Preisschema als Tabelle fuer Teammanager-Mails
  *
- * @return string Tabelle als Plain-Text/Markdown
+ * @return string Tabelle als HTML
  */
 function meldetool_get_price_schema_table_text() {
-    return "Preisschema:\n\n"
-    . "| Klasse | Nenngeld |\n"
-    . "|-------|----------|\n"
-    . "| Jugend U17 m/w - 4er Team | 120 EUR |\n"
-    . "| Junioren U19 m/w - 4er Team | 120 EUR |\n"
-    . "| Elite Frauen - mind. 4 Sportlerinnen | 360 EUR |\n"
-    . "| Elite Frauen - je weitere Sportlerin | 90 EUR |\n"
-    . "| Elite Frauen - 8er Team | 720 EUR |\n"
-    . "| Elite Amateure - 6er Team | 540 EUR |";
+    return '<h3 style="margin:16px 0 8px;">Preisschema</h3>'
+        . '<table class="meldetool-price-schema" border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:760px;">'
+        . '<thead><tr><th align="left">Klasse</th><th align="left">Nenngeld</th></tr></thead>'
+        . '<tbody>'
+        . '<tr><td>Jugend U17 m/w - 4er Team</td><td>120 EUR</td></tr>'
+        . '<tr><td>Junioren U19 m/w - 4er Team</td><td>120 EUR</td></tr>'
+        . '<tr><td>Elite Frauen - mind. 4 Sportlerinnen</td><td>360 EUR</td></tr>'
+        . '<tr><td>Elite Frauen - je weitere Sportlerin</td><td>90 EUR</td></tr>'
+        . '<tr><td>Elite Frauen - 8er Team</td><td>720 EUR</td></tr>'
+        . '<tr><td>Elite Amateure - 6er Team</td><td>540 EUR</td></tr>'
+        . '</tbody></table>';
 }
 
 /**
@@ -171,15 +173,15 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
             $is_team_manager_recipient = true;
         }
     }
+    $append_price_schema = false;
     if ($is_team_manager_recipient) {
-        $price_table = meldetool_get_price_schema_table_text();
-        if (strpos($message, '| Klasse | Nenngeld |') === false) {
-            $message .= "\n\n" . $price_table;
+        if (strpos($message, 'meldetool-price-schema') === false) {
+            $append_price_schema = true;
         }
     }
 
     // E-Mail-Header zusammenstellen (From, Reply-To, CC)
-    $headers = array('Content-Type: text/plain; charset=UTF-8');
+    $headers = array('Content-Type: text/html; charset=UTF-8');
     if (!empty($from_email) && is_email($from_email)) {
         $headers[] = 'From: ' . $from_name . ' <' . $from_email . '>';
     }
@@ -194,9 +196,19 @@ function meldetool_send_team_mail($email, $teamname, $subject, $message, $team_i
         $orga_copy_email = $opts['cc_email'];
     }
 
-    // HTML-Entitäten dekodieren (z.B. &#8211; → –), da E-Mail als Plain Text versendet wird
+    // HTML-Entitaeten dekodieren (z.B. &#8211; -> -)
     $subject = html_entity_decode($subject, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $message = html_entity_decode($message, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    // Plain-Text-Vorlagen in HTML ueberfuehren, vorhandenes HTML im Template aber beibehalten.
+    $message_has_html = (bool) preg_match('/<[^>]+>/', (string) $message);
+    if (!$message_has_html) {
+        $message = nl2br(esc_html((string) $message));
+    }
+
+    if ($append_price_schema) {
+        $message .= '<br><br>' . meldetool_get_price_schema_table_text();
+    }
 
     // Haupt-Mail an Teammanager versenden
     $mail_result = wp_mail($email, $subject, $message, $headers);
