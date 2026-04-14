@@ -103,12 +103,13 @@ function meldetool_get_price_schema_table_text() {
         . '<table class="meldetool-price-schema" border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:760px;">'
         . '<thead><tr><th align="left">Klasse</th><th align="left">Nenngeld</th></tr></thead>'
         . '<tbody>'
-        . '<tr><td>Jugend U17 m/w - 4er Team</td><td>120 EUR</td></tr>'
-        . '<tr><td>Junioren U19 m/w - 4er Team</td><td>120 EUR</td></tr>'
-        . '<tr><td>Elite Frauen - mind. 4 Sportlerinnen</td><td>360 EUR</td></tr>'
-        . '<tr><td>Elite Frauen - je weitere Sportlerin</td><td>90 EUR</td></tr>'
-        . '<tr><td>Elite Frauen - 8er Team</td><td>720 EUR</td></tr>'
-        . '<tr><td>Elite Amateure - 6er Team</td><td>540 EUR</td></tr>'
+    . '<tr><td>Jugend U17 m/w für ein 4er Team</td><td>90 €</td></tr>'
+    . '<tr><td>Einzelstarter:in U17</td><td>25 €</td></tr>'
+    . '<tr><td>Junioren U19 m/w für ein 4er Team</td><td>120 €</td></tr>'
+    . '<tr><td>Elite Frauen mind. 4 Sportlerinnen</td><td>360 €</td></tr>'
+    . '<tr><td>Elite Frauen für jede weitere Sportlerin</td><td>90 €</td></tr>'
+    . '<tr><td>Elite Frauen für ein 8er Team</td><td>720 €</td></tr>'
+    . '<tr><td>Elite Amateure für ein 6er Team</td><td>540 €</td></tr>'
         . '</tbody></table>';
 }
 
