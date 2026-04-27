@@ -241,16 +241,16 @@ add_action('admin_init', function () {
                 }
 
                 fputcsv($out, array(
-                    $rk_term->name,
-                    $team_title,
+                    html_entity_decode($rk_term->name, ENT_QUOTES, 'UTF-8'),
+                    html_entity_decode($team_title, ENT_QUOTES, 'UTF-8'),
                     (string)$nr,
                     $is_cap,
-                    $nachname,
-                    $vorname,
-                    $uci,
-                    $liz,
-					$kategorie,
-                    $etappe
+                    html_entity_decode($nachname, ENT_QUOTES, 'UTF-8'),
+                    html_entity_decode($vorname, ENT_QUOTES, 'UTF-8'),
+                    html_entity_decode($uci, ENT_QUOTES, 'UTF-8'),
+                    html_entity_decode($liz, ENT_QUOTES, 'UTF-8'),
+					html_entity_decode($kategorie, ENT_QUOTES, 'UTF-8'),
+                    html_entity_decode($etappe, ENT_QUOTES, 'UTF-8')
                 ), $delimiter);
                 $class_has_rows = true;
             }
