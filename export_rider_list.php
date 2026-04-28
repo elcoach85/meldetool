@@ -34,7 +34,7 @@ function nhr_export_tools_page_render() {
     $url   = add_query_arg('nhr_do_export', '1', $base);
 
     // default values in UI
-    $numbers_per_team = isset($_GET['nhr_npt']) ? (int) $_GET['nhr_npt'] : 6;
+    $numbers_per_team = isset($_GET['nhr_npt']) ? (int) $_GET['nhr_npt'] : 8;
     $delimiter        = isset($_GET['nhr_delim']) ? $_GET['nhr_delim'] : ';';
     $einzel_keyword   = isset($_GET['nhr_einz']) ? sanitize_text_field($_GET['nhr_einz']) : 'einzelstarter';
 
@@ -54,7 +54,7 @@ function nhr_export_tools_page_render() {
                     <th scope="row"><label for="nhr_npt">Startnummern pro normalem Team</label></th>
                     <td>
                         <input type="number" name="nhr_npt" id="nhr_npt" value="<?php echo esc_attr($numbers_per_team); ?>" min="1" step="1">
-                        <span class="description">Standard: 6.</span>
+                        <span class="description">Standard: 8.</span>
                     </td>
                 </tr>
                 <tr>
@@ -103,7 +103,7 @@ add_action('admin_init', function () {
     }
 
     // Parameter
-    $numbers_per_team = isset($_GET['nhr_npt']) ? max(1, (int) $_GET['nhr_npt']) : 6;
+    $numbers_per_team = isset($_GET['nhr_npt']) ? max(1, (int) $_GET['nhr_npt']) : 8;
     $delimiter_in     = isset($_GET['nhr_delim']) ? wp_unslash($_GET['nhr_delim']) : ';';
     $delimiter        = ($delimiter_in === '\t') ? "\t" : $delimiter_in;
     $einzel_keyword   = isset($_GET['nhr_einz']) ? trim(wp_unslash($_GET['nhr_einz'])) : 'einzelstarter';
