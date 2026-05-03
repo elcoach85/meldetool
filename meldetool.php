@@ -886,7 +886,9 @@ add_shortcode('meldetool_starterliste', function($atts) {
         }
         if (empty($rows)) continue;
 
-        $html .= '<h3 class="meldetool-starterliste__rennklasse">' . esc_html($rk_term->name) . '</h3>';
+        $count = count($rows);
+        $count_label = ($count === 1) ? '1 Fahrer*in' : $count . ' Fahrer*innen';
+        $html .= '<h3 class="meldetool-starterliste__rennklasse">' . esc_html($rk_term->name . ' (' . $count_label . ')') . '</h3>';
         $html .= '<table class="meldetool-starterliste__tabelle">';
         $html .= '<thead><tr>'
                . '<th>Name</th>'

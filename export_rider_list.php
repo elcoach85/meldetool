@@ -175,8 +175,9 @@ add_action('admin_init', function () {
         }
         if (!empty($rows)) {
             $sections[] = array(
-                'name' => html_entity_decode($rk_term->name, ENT_QUOTES, 'UTF-8'),
-                'rows' => $rows,
+                'name'  => html_entity_decode($rk_term->name, ENT_QUOTES, 'UTF-8'),
+                'count' => count($rows),
+                'rows'  => $rows,
             );
         }
     }
@@ -214,7 +215,9 @@ td.col-rest { padding-left: 2em; }
     echo '</p>';
 
     foreach ($sections as $section) {
-        echo '<h2>' . esc_html($section['name']) . '</h2>';
+        $count = (int) $section['count'];
+        $count_label = ($count === 1) ? '1 Fahrer*in' : $count . ' Fahrer*innen';
+        echo '<h2>' . esc_html($section['name'] . ' (' . $count_label . ')') . '</h2>';
         echo '<table>';
         foreach ($section['rows'] as $row) {
             $rest = implode(', ', array_filter(array(
@@ -325,6 +328,8 @@ add_action('admin_init', function () {
         $class_start_number = $next_start_number;
         $block_index    = 0;
         $class_has_rows = false;
+        $class_rider_count = 0;
+        $class_rows = array();
         $max_number_in_class = 0;
 
         foreach ($ordered_teams as $team) {
@@ -391,8 +396,7 @@ add_action('admin_init', function () {
                     $max_number_in_class = max($max_number_in_class, (int)$nr);
                 }
 
-                fputcsv($out, array(
-                    html_entity_decode($rk_term->name, ENT_QUOTES, 'UTF-8'),
+                $class_rows[] = array(
                     html_entity_decode($team_title, ENT_QUOTES, 'UTF-8'),
                     (string)$nr,
                     $is_cap,
@@ -403,8 +407,9 @@ add_action('admin_init', function () {
 					html_entity_decode($kategorie, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($etappe, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($bezahlt, ENT_QUOTES, 'UTF-8')
-                ), $delimiter);
+                );
                 $class_has_rows = true;
+                $class_rider_count++;
             }
 
             // Blöcke „verbrauchen“
@@ -419,6 +424,15 @@ add_action('admin_init', function () {
 
         // Leerzeile zwischen Rennklassen, wenn in dieser Rennklasse etwas ausgegeben wurde
         if ($class_has_rows) {
+            $rk_name = html_entity_decode($rk_term->name, ENT_QUOTES, 'UTF-8');
+            $rk_count_label = ((int) $class_rider_count === 1)
+                ? '1 Fahrer*in'
+                : ((int) $class_rider_count . ' Fahrer*innen');
+            $rk_label = $rk_name . ' (' . $rk_count_label . ')';
+            foreach ($class_rows as $csv_row) {
+                array_unshift($csv_row, $rk_label);
+                fputcsv($out, $csv_row, $delimiter);
+            }
             fputcsv($out, array(), $delimiter);
         }
 
