@@ -785,8 +785,143 @@ add_filter('posts_clauses', function($clauses, $query) {
 
 
 /**
+ * Shortcode [meldetool_starterliste]
+ *
+ * Gibt die Starterliste als HTML-Tabelle aus, gruppiert nach Rennklassen.
+ * Sortierung: Rennklasse (A–Z) → Team (A–Z) → Kapitän zuerst → Nachname → Vorname.
+ * Spalten: Nachname, Vorname | Teamname | Kategorie, Lizenznummer, UCI-ID
+ *
+ * Verwendung: Shortcode [meldetool_starterliste] auf einer beliebigen Seite einfügen.
+ * Optional: [meldetool_starterliste einzel="einzelstarter"] (Standard-Schlüsselwort für Einzel-Teams)
+ */
+add_shortcode('meldetool_starterliste', function($atts) {
+    $atts = shortcode_atts(array('einzel' => 'einzelstarter'), $atts, 'meldetool_starterliste');
+    $einzel_keyword = trim((string) $atts['einzel']);
+
+    $is_einzel = function($team_title) use ($einzel_keyword) {
+        if ($einzel_keyword === '') return false;
+        return (stripos($team_title, $einzel_keyword) !== false);
+    };
+
+    $rennklassen = get_terms(array(
+        'taxonomy'   => 'rennklasse',
+        'hide_empty' => true,
+        'orderby'    => 'name',
+        'order'      => 'ASC',
+    ));
+    if (is_wp_error($rennklassen) || empty($rennklassen)) {
+        return '<p>Keine Starterliste verfügbar.</p>';
+    }
+
+    $html  = '<style>';
+    $html .= '.meldetool-starterliste { font-family: sans-serif; }';
+    $html .= '.meldetool-starterliste__rennklasse { margin-top: 1.6em; margin-bottom: 0.3em; border-bottom: 2px solid currentColor; padding-bottom: 2px; }';
+    $html .= '.meldetool-starterliste__tabelle { border-collapse: collapse; width: 100%; }';
+    $html .= '.meldetool-starterliste__tabelle th { text-align: left; padding: 3px 8px; border-bottom: 1px solid #ccc; white-space: nowrap; }';
+    $html .= '.meldetool-starterliste__tabelle td { padding: 2px 8px; vertical-align: top; }';
+    $html .= '.meldetool-starterliste__tabelle td:first-child { white-space: nowrap; }';
+    $html .= '.meldetool-starterliste__tabelle tbody tr:nth-child(even) { background: rgba(0,0,0,.04); }';
+    $html .= '</style>';
+    $html .= '<div class="meldetool-starterliste">';
+
+    foreach ($rennklassen as $rk_term) {
+        $teams_in_rk = get_posts(array(
+            'post_type'  => 'team',
+            'post_status'=> 'publish',
+            'numberposts'=> -1,
+            'orderby'    => 'title',
+            'order'      => 'ASC',
+            'tax_query'  => array(array(
+                'taxonomy' => 'rennklasse',
+                'field'    => 'term_id',
+                'terms'    => $rk_term->term_id,
+            )),
+        ));
+        if (empty($teams_in_rk)) continue;
+
+        $regular = array(); $einzel_teams = array();
+        foreach ($teams_in_rk as $t) {
+            if ($is_einzel($t->post_title)) $einzel_teams[] = $t; else $regular[] = $t;
+        }
+        usort($regular,       function($a,$b){ return strcasecmp($a->post_title, $b->post_title); });
+        usort($einzel_teams,  function($a,$b){ return strcasecmp($a->post_title, $b->post_title); });
+
+        $rows = array();
+        foreach (array_merge($regular, $einzel_teams) as $team) {
+            $fahrer = get_posts(array(
+                'post_type'  => 'fahrer',
+                'post_status'=> 'publish',
+                'numberposts'=> -1,
+                'meta_key'   => 'team',
+                'meta_value' => $team->ID,
+            ));
+            if (empty($fahrer)) continue;
+
+            usort($fahrer, function($a,$b){
+                $ka = meldetool_bool_meta_sl($a->ID, 'ist_kapitaen') ? 1 : 0;
+                $kb = meldetool_bool_meta_sl($b->ID, 'ist_kapitaen') ? 1 : 0;
+                if ($ka !== $kb) return ($kb - $ka);
+                $na = strtolower((string)get_post_meta($a->ID, 'nachname', true));
+                $nb = strtolower((string)get_post_meta($b->ID, 'nachname', true));
+                if ($na !== $nb) return strcmp($na, $nb);
+                return strcmp(
+                    strtolower((string)get_post_meta($a->ID, 'vorname', true)),
+                    strtolower((string)get_post_meta($b->ID, 'vorname', true))
+                );
+            });
+
+            foreach ($fahrer as $f) {
+                $terms     = get_the_terms($f->ID, 'kategorie');
+                $kategorie = (!empty($terms) && !is_wp_error($terms))
+                    ? implode(', ', wp_list_pluck($terms, 'name')) : '';
+                $rows[] = array(
+                    'nachname'     => (string)get_post_meta($f->ID, 'nachname', true),
+                    'vorname'      => (string)get_post_meta($f->ID, 'vorname', true),
+                    'team'         => get_the_title($team->ID),
+                    'kategorie'    => $kategorie,
+                    'lizenznummer' => (string)get_post_meta($f->ID, 'lizenznummer', true),
+                    'uci_id'       => (string)get_post_meta($f->ID, 'uci_id', true),
+                );
+            }
+        }
+        if (empty($rows)) continue;
+
+        $html .= '<h3 class="meldetool-starterliste__rennklasse">' . esc_html($rk_term->name) . '</h3>';
+        $html .= '<table class="meldetool-starterliste__tabelle">';
+        $html .= '<thead><tr>'
+               . '<th>Name</th>'
+               . '<th>Team</th>'
+               . '<th>Kategorie / Lizenz / UCI-ID</th>'
+               . '</tr></thead><tbody>';
+        foreach ($rows as $row) {
+            $rest = implode(', ', array_filter(array(
+                esc_html($row['kategorie']),
+                esc_html($row['lizenznummer']),
+                esc_html($row['uci_id']),
+            )));
+            $html .= '<tr>';
+            $html .= '<td>' . esc_html($row['nachname'] . ', ' . $row['vorname']) . '</td>';
+            $html .= '<td>' . esc_html($row['team']) . '</td>';
+            $html .= '<td>' . $rest . '</td>';
+            $html .= '</tr>';
+        }
+        $html .= '</tbody></table>';
+    }
+
+    $html .= '</div>';
+    return $html;
+});
+
+/** Hilfsfunktion für Shortcode: interpretiert Post-Meta als bool */
+function meldetool_bool_meta_sl($post_id, $key) {
+    $v = get_post_meta($post_id, $key, true);
+    if (is_bool($v)) return $v;
+    return in_array(strtolower(trim((string)$v)), array('1','true','yes','ja','on'), true);
+}
+
+/**
  * Debug-Tool: Fahrerinformationen ausgeben
- * 
+ *
  * Verwendung:
  * 1. Als Admin anmelden
  * 2. Folgende URL aufrufen: wp-admin/edit.php?post_type=fahrer&debug_fahrer=6355
