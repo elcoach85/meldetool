@@ -118,7 +118,7 @@ add_action('admin_init', function () {
     $out = fopen('php://output', 'w');
 
     // Kopfzeile
-    fputcsv($out, array('Rennklasse','Team','Startnummer','Kapitän','Nachname','Vorname','UCI-ID','Lizenznummer','Kategorie','Etappe'), $delimiter);
+    fputcsv($out, array('Rennklasse','Team','Startnummer','Kapitän','Nachname','Vorname','UCI-ID','Lizenznummer','Kategorie','Etappe','Bezahlt (€)'), $delimiter);
 
     // Rennklassen alphabetisch
     $rennklassen = get_terms(array(
@@ -212,6 +212,7 @@ add_action('admin_init', function () {
                 $uci      = (string) get_post_meta($f->ID, 'uci_id', true);
                 $liz      = (string) get_post_meta($f->ID, 'lizenznummer', true);
                 $is_cap   = nhr_bool_meta($f->ID, 'ist_kapitaen') ? 'Ja' : 'Nein';
+                $bezahlt  = (string) get_post_meta($f->ID, 'bezahlt', true);
 				$terms = get_the_terms($f->ID, 'kategorie');
 				if (!empty($terms) && !is_wp_error($terms)) {
 					$kategorie = (string) implode(', ', wp_list_pluck($terms, 'name'));
@@ -250,7 +251,8 @@ add_action('admin_init', function () {
                     html_entity_decode($uci, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($liz, ENT_QUOTES, 'UTF-8'),
 					html_entity_decode($kategorie, ENT_QUOTES, 'UTF-8'),
-                    html_entity_decode($etappe, ENT_QUOTES, 'UTF-8')
+                    html_entity_decode($etappe, ENT_QUOTES, 'UTF-8'),
+                    html_entity_decode($bezahlt, ENT_QUOTES, 'UTF-8')
                 ), $delimiter);
                 $class_has_rows = true;
             }

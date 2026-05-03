@@ -209,6 +209,15 @@ register_activation_hook($meldetool_main_file, function() {
                     ),
                     'required'         => false,
                 ),
+                array(
+                    'name'                => 'bezahlt',
+                    'label'               => 'Bezahlt (€)',
+                    'type'                => 'currency',
+                    'required'            => false,
+                    'currency_type'       => 'EUR',
+                    'number_decimals'     => 2,
+                    'number_format_type'  => 'i18n',
+                ),
             ),
         ));
         if (is_wp_error($res)) {

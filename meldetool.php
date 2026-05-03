@@ -509,6 +509,7 @@ add_filter('manage_fahrer_posts_columns', function($columns) {
     $columns['etappen_auswahl'] = 'Etappe(n)';
     $columns['lizenznummer'] = 'Lizenznummer';
     $columns['uci_id'] = 'UCI-ID';
+    $columns['bezahlt'] = 'Bezahlt (€)';
 	
 	# remove date and statistics column
     #unset($columns['date']);
@@ -548,6 +549,7 @@ add_action('manage_fahrer_posts_custom_column', function($column, $post_id) {
         case 'uci_id':
         case 'lizenznummer':
 		case 'etappen_auswahl':
+		case 'bezahlt':
 		#case 'kategorie':
 		#case 'rennklasse':
             $value = get_post_meta($post_id, $column, true);
@@ -714,6 +716,7 @@ add_filter('manage_edit-fahrer_sortable_columns', function ($columns) {
     $columns['rennklasse'] = 'rennklasse';
     $columns['kategorie'] = 'kategorie';
     $columns['uci_id'] = 'uci_id';
+    $columns['bezahlt'] = 'bezahlt';
     return $columns;
 });
 
@@ -738,7 +741,7 @@ add_filter('posts_clauses', function($clauses, $query) {
     $orderby = (string) $query->get('orderby');
 
     // Nur fuer Default- oder explizite Listen-Sortierung dieser drei Spalten eingreifen.
-    if (!in_array($orderby, array('', 'team', 'rennklasse', 'kategorie'), true)) {
+    if (!in_array($orderby, array('', 'team', 'rennklasse', 'kategorie', 'bezahlt'), true)) {
         return $clauses;
     }
 
@@ -768,6 +771,9 @@ add_filter('posts_clauses', function($clauses, $query) {
         $clauses['orderby'] = "COALESCE(t_rk.name, 'ZZZ') {$order}, COALESCE(team_post.post_title, 'ZZZ') ASC, {$wpdb->posts}.post_title ASC";
     } elseif ($orderby === 'kategorie') {
         $clauses['orderby'] = "COALESCE(t_kat.name, 'ZZZ') {$order}, COALESCE(team_post.post_title, 'ZZZ') ASC, {$wpdb->posts}.post_title ASC";
+    } elseif ($orderby === 'bezahlt') {
+        $clauses['join']   .= " LEFT JOIN {$wpdb->postmeta} AS pm_bezahlt ON (pm_bezahlt.post_id = {$wpdb->posts}.ID AND pm_bezahlt.meta_key = 'bezahlt')";
+        $clauses['orderby'] = "CAST(COALESCE(pm_bezahlt.meta_value, '0') AS DECIMAL(10,2)) {$order}, {$wpdb->posts}.post_title ASC";
     } else {
         // Default-Sortierung: Rennklasse -> Team -> Kategorie.
         $clauses['orderby'] = "COALESCE(t_rk.name, 'ZZZ') ASC, COALESCE(team_post.post_title, 'ZZZ') ASC, COALESCE(t_kat.name, 'ZZZ') ASC, {$wpdb->posts}.post_title ASC";
