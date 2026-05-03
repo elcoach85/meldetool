@@ -425,10 +425,7 @@ add_action('admin_init', function () {
         // Leerzeile zwischen Rennklassen, wenn in dieser Rennklasse etwas ausgegeben wurde
         if ($class_has_rows) {
             $rk_name = html_entity_decode($rk_term->name, ENT_QUOTES, 'UTF-8');
-            $rk_count_label = ((int) $class_rider_count === 1)
-                ? '1 Fahrer*in'
-                : ((int) $class_rider_count . ' Fahrer*innen');
-            $rk_label = $rk_name . ' (' . $rk_count_label . ')';
+            $rk_label = $rk_name;
             foreach ($class_rows as $csv_row) {
                 array_unshift($csv_row, $rk_label);
                 fputcsv($out, $csv_row, $delimiter);
