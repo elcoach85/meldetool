@@ -16,8 +16,8 @@
 
 add_action('admin_menu', function () {
     add_management_page(
-        'Team/Fahrer Export (csv)',
-        'Team/Fahrer Export (csv)',
+        'Team/Fahrer Export',
+        'Team/Fahrer Export',
         'manage_options',
         'team-fahrer-export',
         'nhr_export_tools_page_render'
@@ -40,7 +40,7 @@ function nhr_export_tools_page_render() {
 
     ?>
     <div class="wrap">
-        <h1>Team/Fahrer Export (CSV)</h1>
+        <h1>Team/Fahrer Export</h1>
         <p>Sortierung: Rennklasse → Team (A–Z, „Einzelstarter“ am Ende) → Kapitän → Nachname. Nummern je Rennklasse: 1–9, 11–19, 21–29 …</p>
 
         <form method="get" action="">
@@ -78,12 +78,162 @@ function nhr_export_tools_page_render() {
             </table>
 
             <p class="submit">
-                <button type="submit" class="button button-primary">CSV exportieren</button>
+                <button type="submit" name="nhr_do_export" value="1" class="button button-primary">CSV exportieren</button>
+                <button type="submit" name="nhr_do_pdf" value="1" class="button button-secondary" style="margin-left:10px;">Starterliste (PDF-Druck)</button>
             </p>
         </form>
     </div>
     <?php
 }
+
+/**
+ * Sehr früh im Admin-Lebenszyklus prüfen wir, ob der PDF-Export aktiv ist.
+ * Gibt eine druckfertige HTML-Seite aus (Browser → Drucken → Als PDF speichern).
+ */
+add_action('admin_init', function () {
+    if (!is_admin() || !current_user_can('manage_options')) return;
+    if (empty($_GET['page']) || $_GET['page'] !== 'team-fahrer-export') return;
+    if (empty($_GET['nhr_do_pdf']) || $_GET['nhr_do_pdf'] !== '1') return;
+
+    check_admin_referer('nhr_export_nonce2');
+
+    $einzel_keyword = isset($_GET['nhr_einz']) ? trim(wp_unslash($_GET['nhr_einz'])) : 'einzelstarter';
+    $is_einzel = function($team_title) use ($einzel_keyword) {
+        if ($einzel_keyword === '') return false;
+        return (stripos($team_title, $einzel_keyword) !== false);
+    };
+
+    $rennklassen = get_terms(array(
+        'taxonomy'   => 'rennklasse',
+        'hide_empty' => false,
+        'orderby'    => 'name',
+        'order'      => 'ASC',
+    ));
+    if (is_wp_error($rennklassen)) $rennklassen = array();
+
+    // Daten aufbauen
+    $sections = array();
+    foreach ($rennklassen as $rk_term) {
+        $teams_in_rk = get_posts(array(
+            'post_type'  => 'team',
+            'post_status'=> 'any',
+            'numberposts'=> -1,
+            'orderby'    => 'title',
+            'order'      => 'ASC',
+            'tax_query'  => array(array(
+                'taxonomy' => 'rennklasse',
+                'field'    => 'term_id',
+                'terms'    => $rk_term->term_id,
+            )),
+        ));
+        if (empty($teams_in_rk)) continue;
+
+        $regular = array(); $einzel = array();
+        foreach ($teams_in_rk as $t) {
+            if ($is_einzel($t->post_title)) $einzel[] = $t; else $regular[] = $t;
+        }
+        usort($regular, function($a,$b){ return strcasecmp($a->post_title, $b->post_title); });
+        usort($einzel,  function($a,$b){ return strcasecmp($a->post_title, $b->post_title); });
+
+        $rows = array();
+        foreach (array_merge($regular, $einzel) as $team) {
+            $fahrer = get_posts(array(
+                'post_type'  => 'fahrer',
+                'post_status'=> 'any',
+                'numberposts'=> -1,
+                'meta_key'   => 'team',
+                'meta_value' => $team->ID,
+            ));
+            if (empty($fahrer)) continue;
+
+            usort($fahrer, function($a,$b){
+                $ka = nhr_bool_meta($a->ID, 'ist_kapitaen') ? 1 : 0;
+                $kb = nhr_bool_meta($b->ID, 'ist_kapitaen') ? 1 : 0;
+                if ($ka !== $kb) return ($kb - $ka);
+                $na = strtolower((string)get_post_meta($a->ID, 'nachname', true));
+                $nb = strtolower((string)get_post_meta($b->ID, 'nachname', true));
+                if ($na !== $nb) return strcmp($na, $nb);
+                return strcmp(
+                    strtolower((string)get_post_meta($a->ID, 'vorname', true)),
+                    strtolower((string)get_post_meta($b->ID, 'vorname', true))
+                );
+            });
+
+            foreach ($fahrer as $f) {
+                $terms     = get_the_terms($f->ID, 'kategorie');
+                $kategorie = (!empty($terms) && !is_wp_error($terms))
+                    ? implode(', ', wp_list_pluck($terms, 'name')) : '';
+                $rows[] = array(
+                    'nachname'     => html_entity_decode((string)get_post_meta($f->ID, 'nachname', true),     ENT_QUOTES, 'UTF-8'),
+                    'vorname'      => html_entity_decode((string)get_post_meta($f->ID, 'vorname', true),      ENT_QUOTES, 'UTF-8'),
+                    'team'         => html_entity_decode(get_the_title($team->ID),                            ENT_QUOTES, 'UTF-8'),
+                    'kategorie'    => html_entity_decode($kategorie,                                          ENT_QUOTES, 'UTF-8'),
+                    'lizenznummer' => html_entity_decode((string)get_post_meta($f->ID, 'lizenznummer', true), ENT_QUOTES, 'UTF-8'),
+                    'uci_id'       => html_entity_decode((string)get_post_meta($f->ID, 'uci_id', true),       ENT_QUOTES, 'UTF-8'),
+                );
+            }
+        }
+        if (!empty($rows)) {
+            $sections[] = array(
+                'name' => html_entity_decode($rk_term->name, ENT_QUOTES, 'UTF-8'),
+                'rows' => $rows,
+            );
+        }
+    }
+
+    // Output-Puffer leeren
+    if (function_exists('ob_get_level')) {
+        while (ob_get_level() > 0) { @ob_end_clean(); }
+    }
+    nocache_headers();
+    header('Content-Type: text/html; charset=utf-8');
+
+    echo '<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">';
+    echo '<title>Starterliste ' . esc_html(date('Y-m-d')) . '</title>';
+    echo '<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: monospace; font-size: 10.5pt; padding: 1.5cm; color: #000; }
+h2 { font-size: 11pt; font-weight: bold; margin-top: 1.6em; margin-bottom: 0.25em;
+     border-bottom: 1px solid #000; padding-bottom: 2px; }
+table { border-collapse: collapse; width: 100%; }
+td { padding: 1px 0; vertical-align: top; }
+td.col-name { width: 22%; white-space: nowrap; }
+td.col-team { width: 28%; padding-left: 2em; }
+td.col-rest { padding-left: 2em; }
+.no-print { }
+@media print {
+  @page { margin: 1.5cm; size: A4 portrait; }
+  body { padding: 0; }
+  h2 { page-break-after: avoid; }
+  .no-print { display: none; }
+}
+</style></head><body>';
+
+    echo '<p class="no-print" style="margin-bottom:1em;">';
+    echo '<button onclick="window.print()" style="padding:6px 14px;font-size:10.5pt;cursor:pointer;">&#128438;&nbsp;Drucken / Als PDF speichern</button>';
+    echo '</p>';
+
+    foreach ($sections as $section) {
+        echo '<h2>' . esc_html($section['name']) . '</h2>';
+        echo '<table>';
+        foreach ($section['rows'] as $row) {
+            $rest = implode(', ', array_filter(array(
+                $row['kategorie'],
+                $row['lizenznummer'],
+                $row['uci_id'],
+            )));
+            echo '<tr>';
+            echo '<td class="col-name">' . esc_html($row['nachname'] . ', ' . $row['vorname']) . '</td>';
+            echo '<td class="col-team">' . esc_html($row['team']) . '</td>';
+            echo '<td class="col-rest">' . esc_html($rest) . '</td>';
+            echo '</tr>';
+        }
+        echo '</table>';
+    }
+
+    echo '</body></html>';
+    exit;
+});
 
 /**
  * Sehr früh im Admin-Lebenszyklus prüfen wir, ob die Export-Query aktiv ist.
