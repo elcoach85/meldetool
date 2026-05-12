@@ -681,10 +681,10 @@ add_action('admin_head', function () {
 });
 
 /**
- * Admin Listen: Team-Filter-Dropdown in Fahrer-Liste
+ * Admin Listen: Filter-Dropdowns in Fahrer-Liste
  * 
- * Ermöglicht schnelle Filterung nach Teams über Dropdown
- * Wird oben in der Post-Listen-Kopfzeile angezeigt
+ * Ermöglicht schnelle Filterung nach Team und Rennklasse über Dropdowns.
+ * Die Rennklasse filtert indirekt über die dem Team zugewiesene Taxonomie.
  * 
  * Hook: restrict_manage_posts (Post List Filters)
  */
@@ -702,7 +702,15 @@ add_action('restrict_manage_posts', function ($post_type) {
         'order'          => 'ASC',
     ]);
 
+    $rennklassen = get_terms([
+        'taxonomy'   => 'rennklasse',
+        'hide_empty' => false,
+        'orderby'    => 'name',
+        'order'      => 'ASC',
+    ]);
+
     $current_team = isset($_GET['team_filter']) ? (int) $_GET['team_filter'] : 0;
+    $current_rennklasse = isset($_GET['rennklasse_filter']) ? (int) $_GET['rennklasse_filter'] : 0;
 
     echo '<select name="team_filter" style="max-width:200px;">';
     echo '<option value="0">Alle Teams</option>';
@@ -717,13 +725,30 @@ add_action('restrict_manage_posts', function ($post_type) {
     }
 
     echo '</select>';
+
+    echo '<select name="rennklasse_filter" style="max-width:200px; margin-left:8px;">';
+    echo '<option value="0">Alle Rennklassen</option>';
+
+    if (!is_wp_error($rennklassen) && !empty($rennklassen)) {
+        foreach ($rennklassen as $rennklasse) {
+            printf(
+                '<option value="%d"%s>%s</option>',
+                $rennklasse->term_id,
+                selected($current_rennklasse, $rennklasse->term_id, false),
+                esc_html($rennklasse->name)
+            );
+        }
+    }
+
+    echo '</select>';
 });
 
 /**
- * Admin Listen: Team-Filter mit Post-Meta-Query umsetzen
+ * Admin Listen: Team- und Rennklassen-Filter umsetzen.
  * 
- * Modifiziert WordPress Query wenn GET-Parameter "team_filter" vorhanden
- * Sortierung nach Teams möglich über "orderby=team"
+ * Der Teamfilter wirkt direkt auf das Fahrer-Meta "team".
+ * Der Rennklassenfilter ermittelt zuerst passende Teams und filtert dann
+ * die Fahrer ebenfalls über deren Team-Meta.
  * 
  * Hook: pre_get_posts (vor Query-Ausführung, ermöglicht Filterung)
  */
@@ -746,13 +771,46 @@ add_action('pre_get_posts', function ($query) {
         return;
     }
 
+    $meta_query = array();
+
     if (!empty($_GET['team_filter']) && intval($_GET['team_filter']) > 0) {
-        $query->set('meta_query', [
-            [
-                'key'   => 'team',
-                'value' => intval($_GET['team_filter']),
-            ]
-        ]);
+        $meta_query[] = array(
+            'key'   => 'team',
+            'value' => intval($_GET['team_filter']),
+        );
+    }
+
+    if (!empty($_GET['rennklasse_filter']) && intval($_GET['rennklasse_filter']) > 0) {
+        $team_ids_for_rennklasse = get_posts(array(
+            'post_type'      => 'team',
+            'post_status'    => 'any',
+            'numberposts'    => -1,
+            'fields'         => 'ids',
+            'tax_query'      => array(
+                array(
+                    'taxonomy' => 'rennklasse',
+                    'field'    => 'term_id',
+                    'terms'    => array(intval($_GET['rennklasse_filter'])),
+                ),
+            ),
+        ));
+
+        if (empty($team_ids_for_rennklasse)) {
+            $query->set('post__in', array(0));
+        } else {
+            $meta_query[] = array(
+                'key'     => 'team',
+                'value'   => array_map('intval', $team_ids_for_rennklasse),
+                'compare' => 'IN',
+            );
+        }
+    }
+
+    if (!empty($meta_query)) {
+        if (count($meta_query) > 1) {
+            $meta_query['relation'] = 'AND';
+        }
+        $query->set('meta_query', $meta_query);
     }
 	
     // UCI-ID als sortierbare Admin-Spalte
