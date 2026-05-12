@@ -124,9 +124,10 @@ function meldetool_sync_currency_fields_to_eur() {
     }
 
     $eur_options = array(
-        'currency_format_sign' => 'euro',
-        'number_decimals'      => 2,
-        'number_format_type'   => 'i18n',
+        'currency_format_sign'      => 'euro',
+        'currency_format_placement' => 'after_space',
+        'number_decimals'           => 2,
+        'number_format_type'        => 'i18n',
     );
 
     $success = true;
@@ -311,13 +312,14 @@ register_activation_hook($meldetool_main_file, function() {
                 array('name' => 'bic', 'label' => 'BIC (für Preisgelder)', 'type' => 'text'),
                 array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (für Preisgelder)', 'type' => 'text'),
                 array(
-                    'name'                 => 'bezahlt',
-                    'label'               => 'Bezahlt (€)',
-                    'type'                => 'currency',
-                    'required'            => false,
-                    'currency_format_sign' => 'euro',
-                    'number_decimals'      => 2,
-                    'number_format_type'  => 'i18n',
+                    'name'                      => 'bezahlt',
+                    'label'                    => 'Bezahlt (€)',
+                    'type'                     => 'currency',
+                    'required'                 => false,
+                    'currency_format_sign'      => 'euro',
+                    'currency_format_placement' => 'after_space',
+                    'number_decimals'           => 2,
+                    'number_format_type'        => 'i18n',
                 ),
             ),
         ));
@@ -378,13 +380,14 @@ register_activation_hook($meldetool_main_file, function() {
                     'required'         => false,
                 ),
                 array(
-                    'name'                 => 'bezahlt',
-                    'label'               => 'Bezahlt (€)',
-                    'type'                => 'currency',
-                    'required'            => false,
-                    'currency_format_sign' => 'euro',
-                    'number_decimals'      => 2,
-                    'number_format_type'  => 'i18n',
+                    'name'                      => 'bezahlt',
+                    'label'                    => 'Bezahlt (€)',
+                    'type'                     => 'currency',
+                    'required'                 => false,
+                    'currency_format_sign'      => 'euro',
+                    'currency_format_placement' => 'after_space',
+                    'number_decimals'           => 2,
+                    'number_format_type'        => 'i18n',
                 ),
             ),
         ));
