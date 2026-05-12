@@ -315,6 +315,9 @@ register_activation_hook($meldetool_main_file, function() {
                     'pick_format_type' => 'single',
                     'data'             => meldetool_get_all_etappen_pick_data(),
                     'required'         => false,
+                    'options'          => array(
+                        'pick_placeholder' => '-- Auswählen --',
+                    ),
                 ),
                 array(
                     'name'                => 'bezahlt',
