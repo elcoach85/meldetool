@@ -51,6 +51,16 @@ function meldetool_backup_tools_page_render() {
     echo '<p><button type="submit" class="button button-primary">Backup importieren</button></p>';
     echo '</form>';
 
+    echo '<hr />';
+
+    echo '<h2>Beziehungen reparieren</h2>';
+    echo '<p>Synchronisiert für vorhandene Datensätze die Pods-Relationship-Felder mit den gesetzten Taxonomie-Terms (Team-Rennklasse, Fahrer-Kategorie).</p>';
+    echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
+    wp_nonce_field('meldetool_backup_repair_relationships');
+    echo '<input type="hidden" name="action" value="meldetool_backup_repair_relationships" />';
+    echo '<p><button type="submit" class="button">Beziehungen jetzt reparieren</button></p>';
+    echo '</form>';
+
     echo '</div>';
 }
 
@@ -161,6 +171,20 @@ add_action('admin_post_meldetool_backup_import', function () {
     }
 
     meldetool_backup_redirect('ok', 'Import abgeschlossen: ' . $team_count . ' Teams und ' . $rider_count . ' Fahrer*innen importiert.');
+});
+
+add_action('admin_post_meldetool_backup_repair_relationships', function () {
+    if (!current_user_can('manage_options')) {
+        wp_die('Keine Berechtigung');
+    }
+    check_admin_referer('meldetool_backup_repair_relationships');
+
+    $counts = meldetool_backup_repair_relationship_meta_all();
+
+    meldetool_backup_redirect(
+        'ok',
+        'Beziehungen repariert: ' . (int) $counts['teams'] . ' Teams und ' . (int) $counts['riders'] . ' Fahrer*innen aktualisiert.'
+    );
 });
 
 function meldetool_backup_collect_terms($taxonomy) {
@@ -309,24 +333,15 @@ function meldetool_backup_import_post($data, $post_type, &$team_map, $term_maps 
             delete_post_meta($new_id, $meta_key);
             foreach ((array) $values as $value) {
                 if ($post_type === 'fahrer' && $meta_key === 'team') {
-                    $old_team_id = (int) $value;
-                    if ($old_team_id && isset($team_map[$old_team_id])) {
-                        $value = (string) $team_map[$old_team_id];
-                    }
+                    $value = meldetool_backup_remap_meta_value_ids($value, $team_map);
                 }
 
                 if ($post_type === 'team' && $meta_key === 'team-rennklasse') {
-                    $old_term_id = (int) $value;
-                    if ($old_term_id && !empty($term_maps['rennklasse'][$old_term_id])) {
-                        $value = (string) $term_maps['rennklasse'][$old_term_id];
-                    }
+                    $value = meldetool_backup_remap_meta_value_ids($value, isset($term_maps['rennklasse']) ? (array) $term_maps['rennklasse'] : array());
                 }
 
                 if ($post_type === 'fahrer' && $meta_key === 'fahrer-kategorie') {
-                    $old_term_id = (int) $value;
-                    if ($old_term_id && !empty($term_maps['kategorie'][$old_term_id])) {
-                        $value = (string) $term_maps['kategorie'][$old_term_id];
-                    }
+                    $value = meldetool_backup_remap_meta_value_ids($value, isset($term_maps['kategorie']) ? (array) $term_maps['kategorie'] : array());
                 }
 
                 add_post_meta($new_id, $meta_key, $value);
@@ -351,7 +366,108 @@ function meldetool_backup_import_post($data, $post_type, &$team_map, $term_maps 
         }
     }
 
+    meldetool_backup_reconcile_relationship_meta($new_id, $post_type);
+
     return (int) $new_id;
+}
+
+/**
+ * Remappt IDs in Meta-Werten anhand einer alten->neuen ID-Map.
+ *
+ * Unterstuetzt skalare Werte sowie Arrays (auch verschachtelt).
+ * Bei Arrays werden nur numerische IDs remappt; andere Inhalte bleiben unveraendert.
+ */
+function meldetool_backup_remap_meta_value_ids($value, $id_map) {
+    if (is_array($value)) {
+        $mapped = array();
+        foreach ($value as $k => $v) {
+            $mapped[$k] = meldetool_backup_remap_meta_value_ids($v, $id_map);
+        }
+        return $mapped;
+    }
+
+    if (!is_scalar($value)) {
+        return $value;
+    }
+
+    $as_string = trim((string) $value);
+    if ($as_string !== '' && ctype_digit($as_string)) {
+        $old_id = (int) $as_string;
+        if ($old_id > 0 && isset($id_map[$old_id])) {
+            return (string) $id_map[$old_id];
+        }
+    }
+
+    return $value;
+}
+
+/**
+ * Synchronisiert Pods-Relationship-Meta nach dem Import aus den bereits gesetzten Terms.
+ *
+ * Das verhindert, dass Admin-Edit-Formulare leer erscheinen, obwohl Taxonomie-Spalten
+ * in Listenansichten korrekt befuellt sind.
+ */
+function meldetool_backup_reconcile_relationship_meta($post_id, $post_type) {
+    $post_id = (int) $post_id;
+    if ($post_id <= 0) {
+        return;
+    }
+
+    if ($post_type === 'fahrer') {
+        $kategorie_terms = get_the_terms($post_id, 'kategorie');
+        if (!empty($kategorie_terms) && !is_wp_error($kategorie_terms)) {
+            $first_term = reset($kategorie_terms);
+            if (!empty($first_term->term_id)) {
+                update_post_meta($post_id, 'fahrer-kategorie', (string) ((int) $first_term->term_id));
+            }
+        }
+    }
+
+    if ($post_type === 'team') {
+        $rennklasse_terms = get_the_terms($post_id, 'rennklasse');
+        if (!empty($rennklasse_terms) && !is_wp_error($rennklasse_terms)) {
+            $first_term = reset($rennklasse_terms);
+            if (!empty($first_term->term_id)) {
+                update_post_meta($post_id, 'team-rennklasse', (string) ((int) $first_term->term_id));
+            }
+        }
+    }
+}
+
+/**
+ * Repariert Relationship-Meta für alle bereits vorhandenen Teams/Fahrer.
+ *
+ * @return array{teams:int,riders:int}
+ */
+function meldetool_backup_repair_relationship_meta_all() {
+    $updated = array(
+        'teams' => 0,
+        'riders' => 0,
+    );
+
+    $team_ids = get_posts(array(
+        'post_type' => 'team',
+        'post_status' => 'any',
+        'numberposts' => -1,
+        'fields' => 'ids',
+    ));
+    foreach ((array) $team_ids as $team_id) {
+        meldetool_backup_reconcile_relationship_meta((int) $team_id, 'team');
+        $updated['teams']++;
+    }
+
+    $rider_ids = get_posts(array(
+        'post_type' => 'fahrer',
+        'post_status' => 'any',
+        'numberposts' => -1,
+        'fields' => 'ids',
+    ));
+    foreach ((array) $rider_ids as $rider_id) {
+        meldetool_backup_reconcile_relationship_meta((int) $rider_id, 'fahrer');
+        $updated['riders']++;
+    }
+
+    return $updated;
 }
 
 function meldetool_backup_purge_post_type($post_type) {
