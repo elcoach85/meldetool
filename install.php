@@ -106,6 +106,66 @@ function meldetool_sync_existing_etappen_auswahl_field(&$errors, $target_data = 
 }
 
 /**
+ * Setzt die Waehrungseinstellung der bezahlt-Felder in Team und Fahrer auf EUR.
+ *
+ * Pods speichert Feldoptionen intern; ein einfaches update_post_meta genuegt nicht.
+ * Diese Funktion korrigiert bestehende Installationen via save_field().
+ *
+ * @return bool true wenn alle Felder erfolgreich aktualisiert wurden
+ */
+function meldetool_sync_currency_fields_to_eur() {
+    if (!function_exists('pods_api')) {
+        return false;
+    }
+
+    $api = pods_api();
+    if (!is_object($api) || !method_exists($api, 'load_pod') || !method_exists($api, 'save_field')) {
+        return false;
+    }
+
+    $eur_options = array(
+        'currency_format_sign' => 'euro',
+        'number_decimals'      => 2,
+        'number_format_type'   => 'i18n',
+    );
+
+    $success = true;
+
+    foreach (array('team', 'fahrer') as $pod_name) {
+        $pod = $api->load_pod(array('name' => $pod_name, 'type' => 'post_type'));
+        if (empty($pod) || !is_array($pod) || empty($pod['fields'])) {
+            continue;
+        }
+
+        foreach ($pod['fields'] as $field) {
+            if (empty($field['name']) || $field['name'] !== 'bezahlt') {
+                continue;
+            }
+            if (empty($field['id'])) {
+                continue;
+            }
+
+            // Pruefen ob bereits EUR gesetzt ist
+            $current_sign = isset($field['currency_format_sign']) ? (string) $field['currency_format_sign'] : '';
+            if ($current_sign === 'euro') {
+                continue;
+            }
+
+            foreach ($eur_options as $key => $val) {
+                $field[$key] = $val;
+            }
+
+            $result = $api->save_field($field);
+            if (is_wp_error($result)) {
+                $success = false;
+            }
+        }
+    }
+
+    return $success;
+}
+
+/**
  * Legt fehlende Terms fuer eine Taxonomie an und sammelt Fehler.
  *
  * @param string $taxonomy Taxonomie-Slug
@@ -251,12 +311,12 @@ register_activation_hook($meldetool_main_file, function() {
                 array('name' => 'bic', 'label' => 'BIC (für Preisgelder)', 'type' => 'text'),
                 array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (für Preisgelder)', 'type' => 'text'),
                 array(
-                    'name'                => 'bezahlt',
+                    'name'                 => 'bezahlt',
                     'label'               => 'Bezahlt (€)',
                     'type'                => 'currency',
                     'required'            => false,
-                    'currency_type'       => 'EUR',
-                    'number_decimals'     => 2,
+                    'currency_format_sign' => 'euro',
+                    'number_decimals'      => 2,
                     'number_format_type'  => 'i18n',
                 ),
             ),
@@ -318,12 +378,12 @@ register_activation_hook($meldetool_main_file, function() {
                     'required'         => false,
                 ),
                 array(
-                    'name'                => 'bezahlt',
+                    'name'                 => 'bezahlt',
                     'label'               => 'Bezahlt (€)',
                     'type'                => 'currency',
                     'required'            => false,
-                    'currency_type'       => 'EUR',
-                    'number_decimals'     => 2,
+                    'currency_format_sign' => 'euro',
+                    'number_decimals'      => 2,
                     'number_format_type'  => 'i18n',
                 ),
             ),
