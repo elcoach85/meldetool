@@ -329,9 +329,18 @@ function meldetool_backup_import_post($data, $post_type, &$team_map, $term_maps 
     }
 
     if (!empty($data['meta']) && is_array($data['meta'])) {
+        $single_relationship_keys = array('team', 'fahrer-kategorie', 'team-rennklasse');
         foreach ($data['meta'] as $meta_key => $values) {
             delete_post_meta($new_id, $meta_key);
-            foreach ((array) $values as $value) {
+
+            $normalized_values = (array) $values;
+            if (in_array($meta_key, $single_relationship_keys, true) && !empty($normalized_values)) {
+                // Relationship-Felder sind in diesem Setup single-value.
+                // Nur den letzten gesicherten Wert übernehmen, um Alt-IDs/Duplikate zu vermeiden.
+                $normalized_values = array(end($normalized_values));
+            }
+
+            foreach ($normalized_values as $value) {
                 if ($post_type === 'fahrer' && $meta_key === 'team') {
                     $value = meldetool_backup_remap_meta_value_ids($value, $team_map);
                 }
@@ -345,6 +354,10 @@ function meldetool_backup_import_post($data, $post_type, &$team_map, $term_maps 
                 }
 
                 add_post_meta($new_id, $meta_key, $value);
+            }
+
+            if ($meta_key === 'team') {
+                meldetool_backup_normalize_rider_team_meta($new_id);
             }
         }
     }
@@ -414,6 +427,8 @@ function meldetool_backup_reconcile_relationship_meta($post_id, $post_type) {
     }
 
     if ($post_type === 'fahrer') {
+        meldetool_backup_normalize_rider_team_meta($post_id);
+
         $kategorie_terms = get_the_terms($post_id, 'kategorie');
         if (!empty($kategorie_terms) && !is_wp_error($kategorie_terms)) {
             $first_term = reset($kategorie_terms);
@@ -468,6 +483,52 @@ function meldetool_backup_repair_relationship_meta_all() {
     }
 
     return $updated;
+}
+
+/**
+ * Normalisiert das Fahrer-Team-Relationship-Meta auf genau einen gueltigen Team-Post.
+ */
+function meldetool_backup_normalize_rider_team_meta($rider_id) {
+    $rider_id = (int) $rider_id;
+    if ($rider_id <= 0) {
+        return;
+    }
+
+    $all_values = get_post_meta($rider_id, 'team', false);
+    if (empty($all_values)) {
+        return;
+    }
+
+    $valid_team_id = 0;
+    foreach ($all_values as $raw) {
+        if (is_array($raw)) {
+            foreach ($raw as $nested) {
+                $candidate = (int) $nested;
+                if ($candidate > 0) {
+                    $candidate_post = get_post($candidate);
+                    if ($candidate_post && $candidate_post->post_type === 'team' && $candidate_post->post_status !== 'trash') {
+                        $valid_team_id = $candidate;
+                    }
+                }
+            }
+            continue;
+        }
+
+        $candidate = (int) $raw;
+        if ($candidate <= 0) {
+            continue;
+        }
+
+        $candidate_post = get_post($candidate);
+        if ($candidate_post && $candidate_post->post_type === 'team' && $candidate_post->post_status !== 'trash') {
+            $valid_team_id = $candidate;
+        }
+    }
+
+    delete_post_meta($rider_id, 'team');
+    if ($valid_team_id > 0) {
+        add_post_meta($rider_id, 'team', (string) $valid_team_id);
+    }
 }
 
 function meldetool_backup_purge_post_type($post_type) {
