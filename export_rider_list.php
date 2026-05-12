@@ -271,7 +271,7 @@ add_action('admin_init', function () {
     $out = fopen('php://output', 'w');
 
     // Kopfzeile
-    fputcsv($out, array('Rennklasse','Team','Startnummer','Kapitän','Nachname','Vorname','UCI-ID','Lizenznummer','Kategorie','Etappe','Bezahlt (€)'), $delimiter);
+    fputcsv($out, array('Rennklasse','Team','Startnummer','Kapitän','Nachname','Vorname','UCI-ID','Lizenznummer','Nationalität','Kategorie','Etappe','Bezahlt (€)'), $delimiter);
 
     // Rennklassen alphabetisch
     $rennklassen = get_terms(array(
@@ -366,6 +366,7 @@ add_action('admin_init', function () {
                 $nachname = (string) get_post_meta($f->ID, 'nachname', true);
                 $uci      = (string) get_post_meta($f->ID, 'uci_id', true);
                 $liz      = (string) get_post_meta($f->ID, 'lizenznummer', true);
+                $nation   = strtoupper(trim((string) get_post_meta($f->ID, 'nationalitaet', true)));
                 $is_cap   = nhr_bool_meta($f->ID, 'ist_kapitaen') ? 'Ja' : 'Nein';
                 $bezahlt  = (string) get_post_meta($f->ID, 'bezahlt', true);
 				$terms = get_the_terms($f->ID, 'kategorie');
@@ -404,6 +405,7 @@ add_action('admin_init', function () {
                     html_entity_decode($vorname, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($uci, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($liz, ENT_QUOTES, 'UTF-8'),
+					html_entity_decode($nation, ENT_QUOTES, 'UTF-8'),
 					html_entity_decode($kategorie, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($etappe, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($bezahlt, ENT_QUOTES, 'UTF-8')
