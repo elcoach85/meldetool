@@ -1014,14 +1014,71 @@ add_action('admin_notices', function () {
     $t_kat = get_the_terms($post_id, 'kategorie');
     echo '<p>Kategorie Terms: <code>' . esc_html(print_r($t_kat, true)) . '</code></p>';
 
+    // 2b) Roh-Meta der Relationship-Felder anzeigen (inkl. Mehrfachwerte)
+    $raw_team_meta = get_post_meta($post_id, 'team', false);
+    $raw_kat_meta = get_post_meta($post_id, 'fahrer-kategorie', false);
+    echo '<p>RAW Meta team: <code>' . esc_html(print_r($raw_team_meta, true)) . '</code></p>';
+    echo '<p>RAW Meta fahrer-kategorie: <code>' . esc_html(print_r($raw_kat_meta, true)) . '</code></p>';
+
     // 3) Team lesen
     $team_id = (int) get_post_meta($post_id, 'team', true);
     echo '<p>Team-ID: ' . $team_id . ' / Team-Titel: ' . ($team_id ? esc_html(get_the_title($team_id)) : '—') . '</p>';
+
+    $team_post = $team_id ? get_post($team_id) : null;
+    if ($team_id && (!$team_post || $team_post->post_type !== 'team')) {
+        echo '<p style="color:#b32d2e;"><strong>WARNUNG:</strong> Team-Meta verweist auf keine gueltige Team-Post-ID.</p>';
+    }
+
+    $kategorie_meta_id = (int) get_post_meta($post_id, 'fahrer-kategorie', true);
+    $kategorie_meta_term = $kategorie_meta_id ? get_term($kategorie_meta_id, 'kategorie') : null;
+    echo '<p>Meta fahrer-kategorie ID: ' . $kategorie_meta_id;
+    if ($kategorie_meta_term && !is_wp_error($kategorie_meta_term)) {
+        echo ' / Term: ' . esc_html($kategorie_meta_term->name . ' (' . $kategorie_meta_term->slug . ')');
+    } elseif ($kategorie_meta_id) {
+        echo ' / <span style="color:#b32d2e;">ungueltige Term-ID</span>';
+    }
+    echo '</p>';
 
     // 4) Rennklasse am Team
     if ($team_id) {
         $t_rk = get_the_terms($team_id, 'rennklasse');
         echo '<p>Rennklasse Terms (Team): <code>' . esc_html(print_r($t_rk, true)) . '</code></p>';
+
+        $team_rk_meta_id = (int) get_post_meta($team_id, 'team-rennklasse', true);
+        $team_rk_meta_term = $team_rk_meta_id ? get_term($team_rk_meta_id, 'rennklasse') : null;
+        echo '<p>Team-Meta team-rennklasse ID: ' . $team_rk_meta_id;
+        if ($team_rk_meta_term && !is_wp_error($team_rk_meta_term)) {
+            echo ' / Term: ' . esc_html($team_rk_meta_term->name . ' (' . $team_rk_meta_term->slug . ')');
+        } elseif ($team_rk_meta_id) {
+            echo ' / <span style="color:#b32d2e;">ungueltige Term-ID</span>';
+        }
+        echo '</p>';
+    }
+
+    // 5) Pods-Feldkonfiguration gegenchecken
+    if (function_exists('pods_api')) {
+        $pod = pods_api()->load_pod(array('name' => 'fahrer', 'type' => 'post_type'));
+        if (is_array($pod) && !empty($pod['fields']) && is_array($pod['fields'])) {
+            $team_field = null;
+            $kategorie_field = null;
+            foreach ($pod['fields'] as $field) {
+                if (!empty($field['name']) && $field['name'] === 'team') {
+                    $team_field = $field;
+                }
+                if (!empty($field['name']) && $field['name'] === 'fahrer-kategorie') {
+                    $kategorie_field = $field;
+                }
+            }
+
+            if (!empty($team_field)) {
+                echo '<p>Pods-Feld team: pick_object=' . esc_html(isset($team_field['pick_object']) ? (string) $team_field['pick_object'] : '')
+                    . ' / pick_val=' . esc_html(isset($team_field['pick_val']) ? (string) $team_field['pick_val'] : '') . '</p>';
+            }
+            if (!empty($kategorie_field)) {
+                echo '<p>Pods-Feld fahrer-kategorie: pick_object=' . esc_html(isset($kategorie_field['pick_object']) ? (string) $kategorie_field['pick_object'] : '')
+                    . ' / pick_val=' . esc_html(isset($kategorie_field['pick_val']) ? (string) $kategorie_field['pick_val'] : '') . '</p>';
+            }
+        }
     }
 
     echo '</div>';
