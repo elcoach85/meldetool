@@ -417,8 +417,9 @@ function meldetool_backup_remap_meta_value_ids($value, $id_map) {
 /**
  * Synchronisiert Pods-Relationship-Meta nach dem Import aus den bereits gesetzten Terms.
  *
- * Das verhindert, dass Admin-Edit-Formulare leer erscheinen, obwohl Taxonomie-Spalten
- * in Listenansichten korrekt befuellt sind.
+ * Nutzt die Pods-API zum Speichern, damit auch die interne Pods-Relationship-Tabelle
+ * (wp_podsrel) befuellt wird – ohne diese zeigt das Admin-Formular leere Felder,
+ * obwohl die Post-Meta und die Taxonomie-Zuordnungen korrekt sind.
  */
 function meldetool_backup_reconcile_relationship_meta($post_id, $post_type) {
     $post_id = (int) $post_id;
@@ -426,14 +427,35 @@ function meldetool_backup_reconcile_relationship_meta($post_id, $post_type) {
         return;
     }
 
+    if (!function_exists('pods')) {
+        return;
+    }
+
     if ($post_type === 'fahrer') {
         meldetool_backup_normalize_rider_team_meta($post_id);
+
+        $save_data = array();
+
+        $team_id = (int) get_post_meta($post_id, 'team', true);
+        if ($team_id > 0) {
+            $team_post = get_post($team_id);
+            if ($team_post && $team_post->post_type === 'team' && $team_post->post_status !== 'trash') {
+                $save_data['team'] = $team_id;
+            }
+        }
 
         $kategorie_terms = get_the_terms($post_id, 'kategorie');
         if (!empty($kategorie_terms) && !is_wp_error($kategorie_terms)) {
             $first_term = reset($kategorie_terms);
             if (!empty($first_term->term_id)) {
-                update_post_meta($post_id, 'fahrer-kategorie', (string) ((int) $first_term->term_id));
+                $save_data['fahrer-kategorie'] = (int) $first_term->term_id;
+            }
+        }
+
+        if (!empty($save_data)) {
+            $pod = pods('fahrer', $post_id);
+            if ($pod && $pod->exists()) {
+                $pod->save($save_data);
             }
         }
     }
@@ -443,7 +465,10 @@ function meldetool_backup_reconcile_relationship_meta($post_id, $post_type) {
         if (!empty($rennklasse_terms) && !is_wp_error($rennklasse_terms)) {
             $first_term = reset($rennklasse_terms);
             if (!empty($first_term->term_id)) {
-                update_post_meta($post_id, 'team-rennklasse', (string) ((int) $first_term->term_id));
+                $pod = pods('team', $post_id);
+                if ($pod && $pod->exists()) {
+                    $pod->save(array('team-rennklasse' => (int) $first_term->term_id));
+                }
             }
         }
     }
