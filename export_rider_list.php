@@ -46,7 +46,6 @@ function nhr_export_tools_page_render() {
         <form method="get" action="">
             <!-- Wichtig: page muss gesetzt bleiben, damit wir auf dieser Tools-Seite bleiben -->
             <input type="hidden" name="page" value="team-fahrer-export">
-            <input type="hidden" name="nhr_do_export" value="1">
             <?php wp_nonce_field('nhr_export_nonce2'); ?>
 
             <table class="form-table" role="presentation">
@@ -79,6 +78,7 @@ function nhr_export_tools_page_render() {
 
             <p class="submit">
                 <button type="submit" name="nhr_do_export" value="1" class="button button-primary">CSV exportieren</button>
+                <button type="submit" name="nhr_do_team_export" value="1" class="button button-secondary" style="margin-left:10px;">Teamliste exportieren</button>
                 <button type="submit" name="nhr_do_pdf" value="1" class="button button-secondary" style="margin-left:10px;">Starterliste (PDF-Druck)</button>
             </p>
         </form>
@@ -439,6 +439,90 @@ add_action('admin_init', function () {
         if ($max_number_in_class > 0) {
             $next_start_number = (int)(floor(($max_number_in_class + 49) / 50) * 50) + 1;
         }
+    }
+
+    fclose($out);
+    exit;
+});
+
+/**
+ * Teamliste als CSV exportieren.
+ * Spalten: Rennklasse, Teamname, Gemeldete Fahrer, Bezahlt, Name Sportlicher Leiter/Teammanager
+ */
+add_action('admin_init', function () {
+    if (!is_admin() || !current_user_can('manage_options')) return;
+    if (empty($_GET['page']) || $_GET['page'] !== 'team-fahrer-export') return;
+    if (empty($_GET['nhr_do_team_export']) || $_GET['nhr_do_team_export'] !== '1') return;
+
+    check_admin_referer('nhr_export_nonce2');
+
+    if (function_exists('ob_get_level')) {
+        while (ob_get_level() > 0) { @ob_end_clean(); }
+    }
+
+    $delimiter_in = isset($_GET['nhr_delim']) ? wp_unslash($_GET['nhr_delim']) : ';';
+    $delimiter    = ($delimiter_in === '\t') ? "\t" : $delimiter_in;
+
+    nocache_headers();
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=team_export_' . date('Y-m-d') . '.csv');
+
+    echo "\xEF\xBB\xBF";
+    $out = fopen('php://output', 'w');
+
+    fputcsv($out, array('Rennklasse', 'Teamname', 'Gemeldete Fahrer', 'Bezahlt (€)', 'Name Sportlicher Leiter/Teammanager'), $delimiter);
+
+    $teams = get_posts(array(
+        'post_type'      => 'team',
+        'post_status'    => 'any',
+        'numberposts'    => -1,
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+    ));
+
+    $rows = array();
+    foreach ($teams as $team) {
+        $team_id = (int) $team->ID;
+        $terms = get_the_terms($team_id, 'rennklasse');
+        $rennklasse = (!empty($terms) && !is_wp_error($terms))
+            ? implode(', ', wp_list_pluck($terms, 'name'))
+            : '—';
+
+        $fahrer_count = (int) count(get_posts(array(
+            'post_type'      => 'fahrer',
+            'post_status'    => array('publish', 'pending', 'draft', 'private', 'future'),
+            'numberposts'    => -1,
+            'fields'         => 'ids',
+            'meta_key'       => 'team',
+            'meta_value'     => $team_id,
+            'suppress_filters' => false,
+        )));
+
+        $rows[] = array(
+            'rennklasse'  => (string) $rennklasse,
+            'teamname'    => (string) $team->post_title,
+            'fahrer'      => (string) $fahrer_count,
+            'bezahlt'     => (string) get_post_meta($team_id, 'bezahlt', true),
+            'teammanager' => (string) get_post_meta($team_id, 'teammanager', true),
+        );
+    }
+
+    usort($rows, function ($a, $b) {
+        $rk_compare = strcasecmp((string) $a['rennklasse'], (string) $b['rennklasse']);
+        if ($rk_compare !== 0) {
+            return $rk_compare;
+        }
+        return strcasecmp((string) $a['teamname'], (string) $b['teamname']);
+    });
+
+    foreach ($rows as $row) {
+        fputcsv($out, array(
+            html_entity_decode($row['rennklasse'], ENT_QUOTES, 'UTF-8'),
+            html_entity_decode($row['teamname'], ENT_QUOTES, 'UTF-8'),
+            html_entity_decode($row['fahrer'], ENT_QUOTES, 'UTF-8'),
+            html_entity_decode($row['bezahlt'], ENT_QUOTES, 'UTF-8'),
+            html_entity_decode($row['teammanager'], ENT_QUOTES, 'UTF-8'),
+        ), $delimiter);
     }
 
     fclose($out);
