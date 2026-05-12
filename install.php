@@ -147,6 +147,15 @@ register_activation_hook($meldetool_main_file, function() {
                 array('name' => 'iban', 'label' => 'IBAN (für Preisgelder)', 'type' => 'text'),
                 array('name' => 'bic', 'label' => 'BIC (für Preisgelder)', 'type' => 'text'),
                 array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (für Preisgelder)', 'type' => 'text'),
+                array(
+                    'name'                => 'bezahlt',
+                    'label'               => 'Bezahlt (€)',
+                    'type'                => 'currency',
+                    'required'            => false,
+                    'currency_type'       => 'EUR',
+                    'number_decimals'     => 2,
+                    'number_format_type'  => 'i18n',
+                ),
             ),
         ));
         if (is_wp_error($res)) {
@@ -293,7 +302,7 @@ register_activation_hook($meldetool_main_file, function() {
         $page_content .= "<h2 class=\"wp-block-heading\">Anmeldung Teams</h2>\n";
         $page_content .= "<!-- /wp:heading -->\n\n";
         $page_content .= "<!-- wp:shortcode -->\n";
-        $page_content .= "[pods-form name=\"team\" fields=\"teamname,team-rennklasse,teammanager,email_manager,iban,bic,kontoinhaber\" encrypted=\"0\" logged_in=\"false\"]\n";
+        $page_content .= "[pods-form name=\"team\" fields=\"teamname,team-rennklasse,teammanager,email_manager,iban,bic,kontoinhaber,bezahlt\" encrypted=\"0\" logged_in=\"false\"]\n";
         $page_content .= "<!-- /wp:shortcode -->\n\n";
         $page_content .= "<!-- wp:heading -->\n";
         $page_content .= "<h2 class=\"wp-block-heading\">Anmeldung Fahrer*innen</h2>\n";

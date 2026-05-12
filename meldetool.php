@@ -520,6 +520,7 @@ add_filter('manage_fahrer_posts_columns', function($columns) {
 add_filter('manage_team_posts_columns', function($columns) {
     $columns['teamname'] = 'Teamname';
 	$columns['rennklasse'] = 'Rennklasse';
+    $columns['bezahlt'] = 'Bezahlt (€)';
     $columns['fahrer_gesamt'] = 'Gemeldete Fahrer';
     $columns['teammanager'] = 'Name Sportlicher Leiter/Teammanager';
 	$columns['email_manager'] = 'E-Mail';
@@ -633,7 +634,9 @@ add_action('manage_team_posts_custom_column', function($column, $post_id) {
         case 'teamname':
         case 'teammanager':
         case 'email_manager':
-            echo esc_html(get_post_meta($post_id, $column, true));
+        case 'bezahlt':
+            $value = get_post_meta($post_id, $column, true);
+            echo ($value !== '' && $value !== null) ? esc_html($value) : '—';
             break;
 
         case 'fahrer_gesamt':
@@ -729,7 +732,17 @@ add_action('pre_get_posts', function ($query) {
         return;
     }
 
-    if ($query->get('post_type') !== 'fahrer') {
+    $post_type = (string) $query->get('post_type');
+
+    if ($post_type === 'team') {
+        if ($query->get('orderby') === 'bezahlt') {
+            $query->set('meta_key', 'bezahlt');
+            $query->set('orderby', 'meta_value_num');
+        }
+        return;
+    }
+
+    if ($post_type !== 'fahrer') {
         return;
     }
 
@@ -754,6 +767,11 @@ add_filter('manage_edit-fahrer_sortable_columns', function ($columns) {
     $columns['rennklasse'] = 'rennklasse';
     $columns['kategorie'] = 'kategorie';
     $columns['uci_id'] = 'uci_id';
+    $columns['bezahlt'] = 'bezahlt';
+    return $columns;
+});
+
+add_filter('manage_edit-team_sortable_columns', function ($columns) {
     $columns['bezahlt'] = 'bezahlt';
     return $columns;
 });
