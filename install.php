@@ -175,17 +175,17 @@ register_activation_hook($meldetool_main_file, function() {
         
     // Kategorie-Terms anlegen
     $kategorien = array(
-        'Amateure' => 'amateure',
-        'Elite Amateure' => 'elite-amateure',
-        'Frauen und Frauen Elite' => 'frauen-und-frauen-elite',
-        'Jugend männlich U17' => 'jugend-maennlich-u17',
-        'Jugend weiblich U17' => 'jugend-weiblich-u17',
-        'Junioren U19' => 'junioren-u19',
-        'Juniorinnen U19' => 'juniorinnen-u19',
-        'Männer U23' => 'maenner-u23',
-        'Schüler U15' => 'schueler-u15',
-        'Schülerinnen U15' => 'schuelerinnen-u15',
-        'Hobby (ohne Lizenz)' => 'hobby',
+        'amateure' => 'Amateure',
+        'elite-amateure' => 'Elite Amateure',
+        'frauen-und-frauen-elite' => 'Frauen und Frauen Elite',
+        'jugend-maennlich-u17' => 'Jugend männlich U17',
+        'jugend-weiblich-u17' => 'Jugend weiblich U17',
+        'junioren-u19' => 'Junioren U19',
+        'juniorinnen-u19' => 'Juniorinnen U19',
+        'maenner-u23' => 'Männer U23',
+        'schueler-u15' => 'Schüler U15',
+        'schuelerinnen-u15' => 'Schülerinnen U15',
+        'hobby' => 'Hobby (ohne Lizenz)',
     );
     meldetool_ensure_terms('kategorie', $kategorien, $errors);
 
@@ -218,15 +218,15 @@ register_activation_hook($meldetool_main_file, function() {
 
     // Rennklassen-Terms anlegen
     $rennklassen = array(
-        'Elite Amateure und Männer U23' => 'elite-amateure-und-maenner-u23',
-        'Frauen und Frauen Elite' => 'frauen-und-frauen-elite',
-        'Jugend männlich U17' => 'jugend-maennlich-u17',
-        'Jugend weiblich U17' => 'jugend-weiblich-u17',
-        'Junioren U19' => 'junioren-u19',
-        'Juniorinnen U19' => 'juniorinnen-u19',
-        'Schüler U15' => 'schueler-u15',
-        'Schülerinnen U15' => 'schuelerinnen-u15',
-        'Hobby (ohne Lizenz)' => 'hobby',
+        'elite-amateure-und-maenner-u23' => 'Elite Amateure und Männer U23',
+        'frauen-und-frauen-elite' => 'Frauen und Frauen Elite',
+        'jugend-maennlich-u17' => 'Jugend männlich U17',
+        'jugend-weiblich-u17' => 'Jugend weiblich U17',
+        'junioren-u19' => 'Junioren U19',
+        'juniorinnen-u19' => 'Juniorinnen U19',
+        'schueler-u15' => 'Schüler U15',
+        'schuelerinnen-u15' => 'Schülerinnen U15',
+        'hobby' => 'Hobby (ohne Lizenz)',
     );
     meldetool_ensure_terms('rennklasse', $rennklassen, $errors);
 
