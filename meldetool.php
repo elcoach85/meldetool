@@ -520,6 +520,7 @@ add_filter('manage_fahrer_posts_columns', function($columns) {
 add_filter('manage_team_posts_columns', function($columns) {
     $columns['teamname'] = 'Teamname';
 	$columns['rennklasse'] = 'Rennklasse';
+    $columns['fahrer_gesamt'] = 'Gemeldete Fahrer';
     $columns['teammanager'] = 'Name Sportlicher Leiter/Teammanager';
 	$columns['email_manager'] = 'E-Mail';
     //$columns['iban'] = 'IBAN';
@@ -530,6 +531,38 @@ add_filter('manage_team_posts_columns', function($columns) {
 	unset($columns['stats']);
     return $columns;
 });
+
+function meldetool_get_team_rider_counts() {
+    static $counts = null;
+
+    if ($counts !== null) {
+        return $counts;
+    }
+
+    global $wpdb;
+
+    $counts = array();
+    $rows = $wpdb->get_results(
+        "SELECT CAST(pm.meta_value AS UNSIGNED) AS team_id, COUNT(1) AS rider_count
+        FROM {$wpdb->posts} p
+        INNER JOIN {$wpdb->postmeta} pm ON (p.ID = pm.post_id AND pm.meta_key = 'team')
+        WHERE p.post_type = 'fahrer'
+          AND p.post_status NOT IN ('trash', 'auto-draft', 'inherit')
+        GROUP BY CAST(pm.meta_value AS UNSIGNED)",
+        ARRAY_A
+    );
+
+    if (!empty($rows)) {
+        foreach ($rows as $row) {
+            $team_id = (int) $row['team_id'];
+            if ($team_id > 0) {
+                $counts[$team_id] = (int) $row['rider_count'];
+            }
+        }
+    }
+
+    return $counts;
+}
 
 
 /**
@@ -601,6 +634,11 @@ add_action('manage_team_posts_custom_column', function($column, $post_id) {
         case 'teammanager':
         case 'email_manager':
             echo esc_html(get_post_meta($post_id, $column, true));
+            break;
+
+        case 'fahrer_gesamt':
+            $counts = meldetool_get_team_rider_counts();
+            echo (int) ($counts[(int) $post_id] ?? 0);
             break;
 
         case 'rennklasse':
