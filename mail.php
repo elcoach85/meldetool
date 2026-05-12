@@ -275,6 +275,7 @@ function meldetool_get_rider_details_text($rider_id) {
     $uci_id = get_post_meta($rider_id, 'uci_id', true);
     $nationalitaet = get_post_meta($rider_id, 'nationalitaet', true);
     $ist_kapitaen = get_post_meta($rider_id, 'ist_kapitaen', true);
+    $etappen_auswahl = get_post_meta($rider_id, 'etappen_auswahl', true);
     $team_id = (int) get_post_meta($rider_id, 'team', true);
 
     $rider_name = trim($vorname . ' ' . $nachname);
@@ -295,6 +296,10 @@ function meldetool_get_rider_details_text($rider_id) {
     }
     if (!empty($ist_kapitaen)) {
         $details[] = 'Kapitaen: Ja';
+    }
+
+    if (!empty($etappen_auswahl)) {
+        $details[] = 'Etappe(n): ' . $etappen_auswahl;
     }
 
     if ($team_id) {
