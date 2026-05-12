@@ -3,6 +3,108 @@
 $meldetool_main_file = MELDETOOL_PLUGIN_DIR . 'meldetool.php';
 
 /**
+ * Zielzustand der Feldoptionen fuer etappen_auswahl.
+ *
+ * U17-Werte bleiben unveraendert; Hobby-Werte werden zusaetzlich erlaubt,
+ * damit bestehende Installationen die neuen Werte serverseitig akzeptieren.
+ *
+ * @param array|null $configured_lists Optional: Listen im Format array('u17' => array(...), 'hobby' => array(...))
+ * @return array
+ */
+function meldetool_get_all_etappen_pick_data($configured_lists = null) {
+    $default_lists = array(
+        'u17' => array('Etappe 1', 'Etappe 2-4', 'Etappe 1-4'),
+        'hobby' => array('Solitude', 'Magstadt', 'Solitude & Magstadt'),
+    );
+
+    $lists = is_array($configured_lists) ? $configured_lists : null;
+    if ($lists === null && function_exists('meldetool_get_configured_etappen_lists')) {
+        $lists = meldetool_get_configured_etappen_lists();
+    }
+    if (!is_array($lists)) {
+        $lists = $default_lists;
+    }
+
+    $combined_values = array_merge(
+        isset($lists['u17']) && is_array($lists['u17']) ? $lists['u17'] : $default_lists['u17'],
+        isset($lists['hobby']) && is_array($lists['hobby']) ? $lists['hobby'] : $default_lists['hobby']
+    );
+
+    $pick_data = array();
+    foreach ($combined_values as $value) {
+        $value = trim((string) $value);
+        if ($value === '') {
+            continue;
+        }
+        $pick_data[$value] = $value;
+    }
+
+    return $pick_data;
+}
+
+/**
+ * Synchronisiert bei bestehenden Installationen die Feldoptionen von etappen_auswahl.
+ *
+ * @param array $errors Referenz auf Fehlerarray
+ * @param array|null $target_data Optionales Ziel-Data-Array fuer Pods-Feld
+ * @return bool true bei Erfolg oder wenn kein Update noetig war
+ */
+function meldetool_sync_existing_etappen_auswahl_field(&$errors, $target_data = null) {
+    if (!function_exists('pods_api')) {
+        return false;
+    }
+
+    $api = pods_api();
+    if (!is_object($api) || !method_exists($api, 'load_pod') || !method_exists($api, 'save_field')) {
+        $errors[] = 'Pods-API unterstuetzt save_field nicht; etappen_auswahl konnte nicht automatisch aktualisiert werden.';
+        return false;
+    }
+
+    $fahrer_pod = $api->load_pod(array('name' => 'fahrer', 'type' => 'post_type'));
+    if (empty($fahrer_pod) || !is_array($fahrer_pod) || empty($fahrer_pod['fields']) || !is_array($fahrer_pod['fields'])) {
+        return false;
+    }
+
+    $etappen_field = null;
+    foreach ($fahrer_pod['fields'] as $field) {
+        if (isset($field['name']) && $field['name'] === 'etappen_auswahl') {
+            $etappen_field = $field;
+            break;
+        }
+    }
+
+    if (!$etappen_field || empty($etappen_field['id'])) {
+        return false;
+    }
+
+    if (!is_array($target_data)) {
+        $target_data = meldetool_get_all_etappen_pick_data();
+    }
+    $current_data = array();
+    if (isset($etappen_field['data']) && is_array($etappen_field['data'])) {
+        $current_data = $etappen_field['data'];
+    }
+
+    if ($current_data === $target_data) {
+        return true;
+    }
+
+    $etappen_field['data'] = $target_data;
+    $etappen_field['pick_format_type'] = 'single';
+
+    $result = $api->save_field($etappen_field);
+    if (is_wp_error($result)) {
+        $errors[] = sprintf(
+            'Feld etappen_auswahl konnte nicht aktualisiert werden: %s',
+            implode('; ', $result->get_error_messages())
+        );
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * Legt fehlende Terms fuer eine Taxonomie an und sammelt Fehler.
  *
  * @param string $taxonomy Taxonomie-Slug
@@ -211,11 +313,7 @@ register_activation_hook($meldetool_main_file, function() {
                     'label'            => 'Etappenauswahl',
                     'type'             => 'pick',
                     'pick_format_type' => 'single',
-                    'data'             => array(
-                        'Etappe 1'   => 'Etappe 1',
-                        'Etappe 2-4' => 'Etappe 2-4',
-                        'Etappe 1-4' => 'Etappe 1-4',
-                    ),
+                    'data'             => meldetool_get_all_etappen_pick_data(),
                     'required'         => false,
                 ),
                 array(
@@ -257,6 +355,11 @@ register_activation_hook($meldetool_main_file, function() {
         $errors = array_merge($errors, $res->get_error_messages());
     }*/
 
+    if (meldetool_sync_existing_etappen_auswahl_field($errors)) {
+        update_option('meldetool_etappen_field_sync_version', '2026-05-etappen-v2', false);
+        set_transient('meldetool_etappen_field_sync_success', 1, 60);
+    }
+
     // Hinweis für Administratoren setzen: manuelle Verknüpfung in Pods prüfen
     set_transient('meldetool_show_pod_connections_notice', 1, 60);
     if (!empty($errors)) {
@@ -283,6 +386,8 @@ register_activation_hook($meldetool_main_file, function() {
             'from_email' => '',
             'reply_to' => '',
             'cc_email' => '',
+            'etappen_options_u17' => "Etappe 1\nEtappe 2-4\nEtappe 1-4",
+            'etappen_options_hobby' => "Solitude\nMagstadt\nSolitude & Magstadt",
             'confirmation_subject' => $mail_defaults['confirmation_subject'],
             'confirmation_message' => $mail_defaults['confirmation_message'],
             'confirmation_subject_publish' => $mail_defaults['confirmation_subject_publish'],
@@ -321,6 +426,30 @@ register_activation_hook($meldetool_main_file, function() {
     }
 });
 
+// Einmalige Feldmigration fuer bestehende Installationen ohne Reaktivierung.
+add_action('admin_init', function() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    $target_version = '2026-05-etappen-v2';
+    $current_version = (string) get_option('meldetool_etappen_field_sync_version', '');
+    if ($current_version === $target_version) {
+        return;
+    }
+
+    $errors = array();
+    if (meldetool_sync_existing_etappen_auswahl_field($errors)) {
+        update_option('meldetool_etappen_field_sync_version', $target_version, false);
+        set_transient('meldetool_etappen_field_sync_success', 1, 60);
+        return;
+    }
+
+    if (!empty($errors)) {
+        set_transient('meldetool_activation_errors', $errors, 60);
+    }
+});
+
 // Beim Admin-Login nach Aktivierung Hinweis anzeigen, dass Pods-Verbindungen manuell geprüft werden sollen
 add_action('admin_notices', function() {
     if (!current_user_can('manage_options')) return;
@@ -330,6 +459,16 @@ add_action('admin_notices', function() {
     delete_transient('meldetool_show_pod_connections_notice');
 
     echo '<div class="notice notice-info is-dismissible"><p><strong>Meldetool:</strong> Bitte in Pods → rennklasse → Verbindungen den Eintrag "team" anhaken und in Pods → kategorie → Verbindungen den Eintrag "fahrer" anhaken.<br>Zusätzlich: Pods → Team → Feld "Rennklasse" → Relationship-Optionen → Sync anhaken. Selbes mit Fahrer → Feld "Kategorie" → Relationship-Optionen → Sync anhaken. Danach ggf. Pods-Cache leeren.</p></div>';
+});
+
+// Admin notice: Zeigt erfolgreiche Etappenfeld-Migration einmalig an.
+add_action('admin_notices', function() {
+    if (!current_user_can('manage_options')) return;
+    if (!get_transient('meldetool_etappen_field_sync_success')) return;
+
+    delete_transient('meldetool_etappen_field_sync_success');
+
+    echo '<div class="notice notice-success is-dismissible"><p><strong>Meldetool:</strong> Die Etappenauswahl wurde erfolgreich auf die neuen Optionen (inkl. Hobby-Etappen) aktualisiert.</p></div>';
 });
 
 // Admin notice: Zeige Pods-Aktivierungsfehler (falls vorhanden)

@@ -23,6 +23,12 @@ add_action('wp_footer', function() {
     $optional_team_ids = meldetool_get_license_optional_team_ids();
     $iban_bic_team_ids = meldetool_get_iban_bic_visible_team_ids();
     $u17_team_ids      = meldetool_get_u17_team_ids();
+    $etappen_lists = function_exists('meldetool_get_configured_etappen_lists')
+        ? meldetool_get_configured_etappen_lists()
+        : array(
+            'u17' => array('Etappe nicht konfiguriert,', 'bitte prüfen!'),
+            'hobby' => array('Etappe nicht konfiguriert,', 'bitte prüfen!'),
+        );
     $logging_enabled = meldetool_is_logging_enabled();
     
     // Debug: sammelt alle Team-IDs und -Namen für Logging (nur wenn Logging aktiv UND auf Anmeldungsseite)
@@ -56,6 +62,8 @@ add_action('wp_footer', function() {
         var optionalTeamIds = <?php echo wp_json_encode(array_values($optional_team_ids)); ?>;
         var ibanBicTeamIds = <?php echo wp_json_encode(array_values($iban_bic_team_ids)); ?>;
         var u17TeamIds = <?php echo wp_json_encode(array_values($u17_team_ids)); ?>;
+        var u17EtappenOptions = <?php echo wp_json_encode(array_values($etappen_lists['u17'])); ?>;
+        var hobbyEtappenOptions = <?php echo wp_json_encode(array_values($etappen_lists['hobby'])); ?>;
         meldLog('[meldetool] optional team IDs: ' + JSON.stringify(optionalTeamIds));
         meldLog('[meldetool] iban/bic team IDs: ' + JSON.stringify(ibanBicTeamIds));
         meldLog('[meldetool] u17 team IDs: ' + JSON.stringify(u17TeamIds));
@@ -126,6 +134,59 @@ add_action('wp_footer', function() {
                 }
             }
             return null;
+        }
+
+        /**
+         * Synchronisiert die Dropdown-Optionen der Etappenauswahl fuer den aktiven Team-Typ.
+         * Erhaelt vorhandene Platzhalter-Optionen und stellt gueltige Werte wieder her.
+         */
+        function syncEtappenSelectOptions(selectEl, options, preferredValue) {
+            if (!selectEl) {
+                return;
+            }
+
+            function optionValue(opt) {
+                if (typeof opt === 'object' && opt !== null && typeof opt.value !== 'undefined') {
+                    return String(opt.value);
+                }
+                return String(opt);
+            }
+
+            function optionLabel(opt) {
+                if (typeof opt === 'object' && opt !== null && typeof opt.label !== 'undefined') {
+                    return String(opt.label);
+                }
+                return optionValue(opt);
+            }
+
+            var emptyOptionText = '';
+            Array.prototype.forEach.call(selectEl.options || [], function(optionEl) {
+                if (optionEl && optionEl.value === '' && !emptyOptionText) {
+                    emptyOptionText = optionEl.textContent || optionEl.innerText || '';
+                }
+            });
+
+            while (selectEl.options.length > 0) {
+                selectEl.remove(0);
+            }
+
+            var placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.text = emptyOptionText || '-- Auswählen --';
+            selectEl.appendChild(placeholderOption);
+
+            options.forEach(function(opt) {
+                var optionEl = document.createElement('option');
+                optionEl.value = optionValue(opt);
+                optionEl.text = optionLabel(opt);
+                selectEl.appendChild(optionEl);
+            });
+
+            var validValues = options.map(function(opt) {
+                return optionValue(opt);
+            });
+            var finalValue = validValues.indexOf(preferredValue) !== -1 ? preferredValue : '';
+            selectEl.value = finalValue;
         }
 
         /**
@@ -513,6 +574,7 @@ add_action('wp_footer', function() {
 
             var selectedTeamId = asInt(teamSelect.value);
             var isOptional = optionalTeamIds.indexOf(selectedTeamId) !== -1;
+            var isHobbyTeam = isOptional;
             var isEinzelstarter = ibanBicTeamIds.indexOf(selectedTeamId) !== -1;
             var isU17Team = u17TeamIds.indexOf(selectedTeamId) !== -1;
 
@@ -556,7 +618,7 @@ add_action('wp_footer', function() {
                 input.required = false;
             });
 
-            // Etappenauswahl nur fuer U17-Teams
+            // Etappenauswahl fuer U17- und Hobby-Teams (mit unterschiedlicher Optionsliste)
             var etappenWrap = findFieldWrap('etappen_auswahl', riderForm);
             if (etappenWrap) {
                 // Wert vor Display-Toggle sichern – Tom Select / Select2 setzt select
@@ -565,16 +627,17 @@ add_action('wp_footer', function() {
                     'select[name="pods_field_etappen_auswahl"], select[name="pods_field_etappen-auswahl"], select[name="etappen_auswahl"]'
                 );
                 var savedEtappenValue = etappenSelect ? etappenSelect.value : null;
+                var shouldShowEtappen = isU17Team || isHobbyTeam;
 
-                etappenWrap.style.display = isU17Team ? '' : 'none';
+                etappenWrap.style.display = shouldShowEtappen ? '' : 'none';
 
                 // Select (Dropdown-Fall) behandeln
                 if (etappenSelect) {
-                    etappenSelect.required = isU17Team;
-                    if (isU17Team && savedEtappenValue) {
-                        // Gespeicherten Wert nach Display-Aenderung wiederherstellen
-                        etappenSelect.value = savedEtappenValue;
-                    } else if (!isU17Team) {
+                    etappenSelect.required = shouldShowEtappen;
+                    if (shouldShowEtappen) {
+                        var targetOptions = isHobbyTeam ? hobbyEtappenOptions : u17EtappenOptions;
+                        syncEtappenSelectOptions(etappenSelect, targetOptions, savedEtappenValue);
+                    } else {
                         etappenSelect.value = '';
                     }
                 }
@@ -586,8 +649,8 @@ add_action('wp_footer', function() {
                     'input[type="radio"][name="etappen_auswahl"]'
                 );
                 Array.prototype.forEach.call(etappenRadios, function(input) {
-                    input.required = isU17Team;
-                    if (!isU17Team) {
+                    input.required = shouldShowEtappen;
+                    if (!shouldShowEtappen) {
                         input.checked = false;
                     }
                 });

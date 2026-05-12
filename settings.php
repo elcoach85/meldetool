@@ -19,6 +19,50 @@ function meldetool_default_mail_texts() {
     );
 }
 
+function meldetool_default_etappen_lists() {
+    return array(
+        'u17' => array('Etappe 1', 'Etappe 2-4', 'Etappe 1-4'),
+        'hobby' => array('Solitude', 'Magstadt', 'Solitude & Magstadt'),
+    );
+}
+
+function meldetool_normalize_etappen_list($raw_value, $fallback) {
+    $lines = is_array($raw_value)
+        ? $raw_value
+        : preg_split('/\r\n|\r|\n/', (string) $raw_value);
+
+    $normalized = array();
+    foreach ((array) $lines as $line) {
+        $value = sanitize_text_field(trim((string) $line));
+        if ($value === '' || in_array($value, $normalized, true)) {
+            continue;
+        }
+        $normalized[] = $value;
+    }
+
+    if (empty($normalized)) {
+        return array_values((array) $fallback);
+    }
+
+    return $normalized;
+}
+
+function meldetool_get_configured_etappen_lists($source_options = null) {
+    $defaults = meldetool_default_etappen_lists();
+    $opts = is_array($source_options) ? $source_options : get_option('meldetool_options', array());
+
+    return array(
+        'u17' => meldetool_normalize_etappen_list(
+            isset($opts['etappen_options_u17']) ? $opts['etappen_options_u17'] : '',
+            $defaults['u17']
+        ),
+        'hobby' => meldetool_normalize_etappen_list(
+            isset($opts['etappen_options_hobby']) ? $opts['etappen_options_hobby'] : '',
+            $defaults['hobby']
+        ),
+    );
+}
+
 add_action('admin_menu', function() {
     add_options_page('Meldetool Einstellungen', 'Meldetool', 'manage_options', 'meldetool-settings', 'meldetool_settings_page');
 });
@@ -59,6 +103,20 @@ add_action('admin_init', function() {
         $opts = get_option('meldetool_options', array());
         $val = isset($opts['cc_email']) ? esc_attr($opts['cc_email']) : '';
         printf('<input type="email" name="meldetool_options[cc_email]" value="%s" class="regular-text" placeholder="leer lassen = keine CC" />', $val);
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('etappen_options_u17', 'Etappenoptionen U17', function() {
+        $lists = meldetool_get_configured_etappen_lists();
+        $val = esc_textarea(implode("\n", $lists['u17']));
+        printf('<textarea name="meldetool_options[etappen_options_u17]" rows="4" class="large-text code">%s</textarea>', $val);
+        echo '<p class="description">Eine Option pro Zeile. Gilt nur für U17-Teams.</p>';
+    }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('etappen_options_hobby', 'Etappenoptionen Hobby', function() {
+        $lists = meldetool_get_configured_etappen_lists();
+        $val = esc_textarea(implode("\n", $lists['hobby']));
+        printf('<textarea name="meldetool_options[etappen_options_hobby]" rows="4" class="large-text code">%s</textarea>', $val);
+        echo '<p class="description">Eine Option pro Zeile. Gilt nur für Hobbyteams.</p>';
     }, 'meldetool_settings', 'meldetool_main');
 
     add_settings_field('confirmation_subject', 'E-Mail Betreff', function() {
@@ -136,6 +194,7 @@ add_action('admin_init', function() {
 
 function meldetool_sanitize_options($input) {
     $defaults = meldetool_default_mail_texts();
+    $etappen_lists = meldetool_get_configured_etappen_lists($input);
     $out = array();
 
     $out['enable_logging'] = !empty($input['enable_logging']) ? 1 : 0;
@@ -143,6 +202,8 @@ function meldetool_sanitize_options($input) {
     $out['from_email'] = !empty($input['from_email']) && is_email($input['from_email']) ? sanitize_email($input['from_email']) : '';
     $out['reply_to'] = !empty($input['reply_to']) && is_email($input['reply_to']) ? sanitize_email($input['reply_to']) : '';
     $out['cc_email'] = !empty($input['cc_email']) && is_email($input['cc_email']) ? sanitize_email($input['cc_email']) : '';
+    $out['etappen_options_u17'] = implode("\n", $etappen_lists['u17']);
+    $out['etappen_options_hobby'] = implode("\n", $etappen_lists['hobby']);
     $out['confirmation_subject'] = isset($input['confirmation_subject']) && $input['confirmation_subject'] !== ''
         ? sanitize_text_field($input['confirmation_subject'])
         : $defaults['confirmation_subject'];
@@ -167,6 +228,18 @@ function meldetool_sanitize_options($input) {
     $out['rider_details_message'] = isset($input['rider_details_message']) && $input['rider_details_message'] !== ''
         ? wp_kses_post($input['rider_details_message'])
         : $defaults['rider_details_message'];
+
+    if (function_exists('meldetool_sync_existing_etappen_auswahl_field') && function_exists('meldetool_get_all_etappen_pick_data')) {
+        $errors = array();
+        $target_data = meldetool_get_all_etappen_pick_data($etappen_lists);
+        if (meldetool_sync_existing_etappen_auswahl_field($errors, $target_data)) {
+            set_transient('meldetool_etappen_field_sync_success', 1, 60);
+        } elseif (!empty($errors)) {
+            foreach ($errors as $err) {
+                add_settings_error('meldetool_options', 'meldetool_etappen_sync', $err, 'error');
+            }
+        }
+    }
 
     return $out;
 }
