@@ -103,6 +103,11 @@ add_action('admin_init', function () {
         return (stripos($team_title, $einzel_keyword) !== false);
     };
 
+    // Hobby-Teams nutzen ebenfalls die Etappenauswahl.
+    $hobby_team_ids = function_exists('meldetool_get_license_optional_team_ids')
+        ? array_map('intval', (array) meldetool_get_license_optional_team_ids())
+        : array();
+
     $rennklassen = get_terms(array(
         'taxonomy'   => 'rennklasse',
         'hide_empty' => false,
@@ -358,6 +363,8 @@ add_action('admin_init', function () {
 
             $team_title = get_the_title($team->ID);
             $einzelFlg  = $is_einzel($team_title);
+            $is_hobby_team = in_array((int) $team->ID, $hobby_team_ids, true)
+                || (stripos((string) $team_title, 'Hobby') !== false);
             $base       = $class_start_number + ($block_index * 10); // z.B. 1, 11, 21, ...
 
             $assigned = 0;
@@ -376,7 +383,9 @@ add_action('admin_init', function () {
 					$kategorie = '—';
 				}
 
-                $etappe = $is_u17_class ? (string) get_post_meta($f->ID, 'etappen_auswahl', true) : '';
+                $etappe = ($is_u17_class || $is_hobby_team)
+                    ? (string) get_post_meta($f->ID, 'etappen_auswahl', true)
+                    : '';
 
                 // Nummernvergabe
                 if ($einzelFlg) {
