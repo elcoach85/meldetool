@@ -293,6 +293,11 @@ add_action('admin_init', function () {
         return (stripos($team_title, $einzel_keyword) !== false);
     };
 
+    // Hobby-Teams nutzen ebenfalls die Etappenauswahl.
+    $hobby_team_ids = function_exists('meldetool_get_license_optional_team_ids')
+        ? array_map('intval', (array) meldetool_get_license_optional_team_ids())
+        : array();
+
     // Startnummern-Logik: Startnummer für jede Rennklasse im nächsten 50er-Block beginnen lassen
     $next_start_number = 1;
     foreach ($rennklassen as $rk_term) {
