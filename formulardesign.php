@@ -29,6 +29,9 @@ add_action('wp_footer', function() {
             'u17' => array('Etappe nicht konfiguriert,', 'bitte prüfen!'),
             'hobby' => array('Etappe nicht konfiguriert,', 'bitte prüfen!'),
         );
+    $nationality_pick_data = function_exists('meldetool_get_configured_nationality_pick_data')
+        ? meldetool_get_configured_nationality_pick_data()
+        : array('DEU' => 'Deutschland', 'COL' => 'Kolumbien');
     $logging_enabled = meldetool_is_logging_enabled();
     
     // Debug: sammelt alle Team-IDs und -Namen für Logging (nur wenn Logging aktiv UND auf Anmeldungsseite)
@@ -64,6 +67,7 @@ add_action('wp_footer', function() {
         var u17TeamIds = <?php echo wp_json_encode(array_values($u17_team_ids)); ?>;
         var u17EtappenOptions = <?php echo wp_json_encode(array_values($etappen_lists['u17'])); ?>;
         var hobbyEtappenOptions = <?php echo wp_json_encode(array_values($etappen_lists['hobby'])); ?>;
+        var nationalityOptions = <?php echo wp_json_encode($nationality_pick_data); ?>;
         meldLog('[meldetool] optional team IDs: ' + JSON.stringify(optionalTeamIds));
         meldLog('[meldetool] iban/bic team IDs: ' + JSON.stringify(ibanBicTeamIds));
         meldLog('[meldetool] u17 team IDs: ' + JSON.stringify(u17TeamIds));
@@ -187,6 +191,69 @@ add_action('wp_footer', function() {
             });
             var finalValue = validValues.indexOf(preferredValue) !== -1 ? preferredValue : '';
             selectEl.value = finalValue;
+        }
+
+        /**
+         * Synchronisiert Nationalitaetsoptionen im Fahrerformular anhand der Einstellungen.
+         * Dient als Fallback, falls Pods-Feldoptionen noch nicht aktualisiert sind.
+         */
+        function syncNationalityOptions(riderForm) {
+            if (!riderForm || !nationalityOptions || typeof nationalityOptions !== 'object') {
+                return;
+            }
+
+            var selectEl = riderForm.querySelector(
+                'select[name="pods_field_nationalitaet"], select[name="pods_field_nationalitaet[]"], select[name="nationalitaet"]'
+            );
+
+            if (!selectEl) {
+                return;
+            }
+
+            var currentValue = String(selectEl.value || '');
+            var optionsList = [];
+            Object.keys(nationalityOptions).forEach(function(code) {
+                var normalizedCode = String(code || '').trim().toUpperCase();
+                if (!normalizedCode) {
+                    return;
+                }
+                var label = String(nationalityOptions[code] || normalizedCode).trim();
+                optionsList.push({ value: normalizedCode, label: label || normalizedCode });
+            });
+
+            if (!optionsList.length) {
+                return;
+            }
+
+            optionsList.sort(function(a, b) {
+                return a.label.localeCompare(b.label, 'de', { sensitivity: 'base' });
+            });
+
+            var existingValues = {};
+            Array.prototype.forEach.call(selectEl.options || [], function(opt) {
+                if (!opt) {
+                    return;
+                }
+                existingValues[String(opt.value || '').toUpperCase()] = true;
+            });
+
+            optionsList.forEach(function(entry) {
+                if (existingValues[entry.value]) {
+                    return;
+                }
+                var optionEl = document.createElement('option');
+                optionEl.value = entry.value;
+                optionEl.text = entry.label;
+                selectEl.appendChild(optionEl);
+            });
+
+            if (currentValue) {
+                selectEl.value = currentValue;
+            }
+
+            if (selectEl.tomselect && typeof selectEl.tomselect.sync === 'function') {
+                selectEl.tomselect.sync();
+            }
         }
 
         /**
@@ -571,6 +638,8 @@ add_action('wp_footer', function() {
                 return;
             }
             var riderForm = teamSelect.closest('form') || document;
+
+            syncNationalityOptions(riderForm);
 
             var selectedTeamId = asInt(teamSelect.value);
             var isOptional = optionalTeamIds.indexOf(selectedTeamId) !== -1;
