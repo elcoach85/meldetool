@@ -44,6 +44,131 @@ function meldetool_get_all_etappen_pick_data($configured_lists = null) {
 }
 
 /**
+ * Standardwerte fuer Nationalitaeten im Fahrer-Formular (Code => Bezeichnung).
+ *
+ * @return array
+ */
+function meldetool_default_nationality_pick_data() {
+    return array(
+        'DEU' => 'Deutschland',
+        'FRA' => 'Frankreich',
+        'GRC' => 'Griechenland',
+        'CHE' => 'Schweiz',
+        'AUT' => 'Oesterreich',
+        'CZE' => 'Tschechische Republik',
+        'LUX' => 'Luxemburg',
+        'BEL' => 'Belgien',
+        'NLD' => 'Niederlande',
+        'ITA' => 'Italien',
+        'AUS' => 'Australien',
+        'NOR' => 'Norwegen',
+        'USA' => 'Vereinigte Staaten von Amerika',
+        'ZAF' => 'Suedafrika',
+        'COL' => 'Kolumbien',
+    );
+}
+
+/**
+ * Konvertiert Pick-Daten (Code => Label) in das gespeicherte Zeilenformat CODE=Label.
+ *
+ * @param array $pick_data
+ * @return string
+ */
+function meldetool_nationality_pick_data_to_option_text($pick_data) {
+    $lines = array();
+    foreach ((array) $pick_data as $code => $label) {
+        $code = strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) $code));
+        if (strlen($code) < 2) {
+            continue;
+        }
+        $label = sanitize_text_field((string) $label);
+        if ($label === '') {
+            $label = $code;
+        }
+        $lines[] = $code . '=' . $label;
+    }
+
+    return implode("\n", $lines);
+}
+
+/**
+ * Normalisiert freie Nationalitaets-Eingaben auf ein Pick-Data-Array (Code => Label).
+ *
+ * Erlaubte Formate pro Zeile:
+ * - CODE=Label
+ * - CODE|Label
+ * - CODE;Label
+ * - CODE (Label entspricht dann dem Code)
+ *
+ * @param string|array $raw_value
+ * @param array $fallback
+ * @return array
+ */
+function meldetool_normalize_nationality_pick_data($raw_value, $fallback) {
+    $lines = is_array($raw_value)
+        ? $raw_value
+        : preg_split('/\r\n|\r|\n/', (string) $raw_value);
+
+    $pick_data = array();
+    foreach ((array) $lines as $line) {
+        $line = trim((string) $line);
+        if ($line === '') {
+            continue;
+        }
+
+        $separator_pos = false;
+        foreach (array('=', '|', ';') as $separator) {
+            $separator_pos = strpos($line, $separator);
+            if ($separator_pos !== false) {
+                break;
+            }
+        }
+
+        if ($separator_pos !== false) {
+            $code_part = substr($line, 0, $separator_pos);
+            $label_part = substr($line, $separator_pos + 1);
+        } else {
+            $code_part = $line;
+            $label_part = '';
+        }
+
+        $code = strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) $code_part));
+        if (strlen($code) < 2) {
+            continue;
+        }
+
+        $label = sanitize_text_field(trim((string) $label_part));
+        if ($label === '') {
+            $label = $code;
+        }
+
+        if (!isset($pick_data[$code])) {
+            $pick_data[$code] = $label;
+        }
+    }
+
+    if (empty($pick_data)) {
+        return (array) $fallback;
+    }
+
+    return $pick_data;
+}
+
+/**
+ * Liefert die in den Einstellungen konfigurierten Nationalitaetscodes als Pick-Daten.
+ *
+ * @param array|null $source_options Optionales Optionen-Array statt get_option.
+ * @return array
+ */
+function meldetool_get_configured_nationality_pick_data($source_options = null) {
+    $defaults = meldetool_default_nationality_pick_data();
+    $opts = is_array($source_options) ? $source_options : get_option('meldetool_options', array());
+    $raw = isset($opts['nationality_codes']) ? $opts['nationality_codes'] : '';
+
+    return meldetool_normalize_nationality_pick_data($raw, $defaults);
+}
+
+/**
  * Synchronisiert bei bestehenden Installationen die Feldoptionen von etappen_auswahl.
  *
  * @param array $errors Referenz auf Fehlerarray
@@ -97,6 +222,69 @@ function meldetool_sync_existing_etappen_auswahl_field(&$errors, $target_data = 
     if (is_wp_error($result)) {
         $errors[] = sprintf(
             'Feld etappen_auswahl konnte nicht aktualisiert werden: %s',
+            implode('; ', $result->get_error_messages())
+        );
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * Synchronisiert bei bestehenden Installationen die Feldoptionen von nationalitaet.
+ *
+ * @param array $errors Referenz auf Fehlerarray
+ * @param array|null $target_data Optionales Ziel-Data-Array fuer Pods-Feld
+ * @return bool true bei Erfolg oder wenn kein Update noetig war
+ */
+function meldetool_sync_existing_nationalitaet_field(&$errors, $target_data = null) {
+    if (!function_exists('pods_api')) {
+        return false;
+    }
+
+    $api = pods_api();
+    if (!is_object($api) || !method_exists($api, 'load_pod') || !method_exists($api, 'save_field')) {
+        $errors[] = 'Pods-API unterstuetzt save_field nicht; Nationalitaeten konnten nicht automatisch aktualisiert werden.';
+        return false;
+    }
+
+    $fahrer_pod = $api->load_pod(array('name' => 'fahrer', 'type' => 'post_type'));
+    if (empty($fahrer_pod) || !is_array($fahrer_pod) || empty($fahrer_pod['fields']) || !is_array($fahrer_pod['fields'])) {
+        return false;
+    }
+
+    $nationalitaet_field = null;
+    foreach ($fahrer_pod['fields'] as $field) {
+        if (isset($field['name']) && $field['name'] === 'nationalitaet') {
+            $nationalitaet_field = $field;
+            break;
+        }
+    }
+
+    if (!$nationalitaet_field || empty($nationalitaet_field['id'])) {
+        return false;
+    }
+
+    if (!is_array($target_data)) {
+        $target_data = meldetool_get_configured_nationality_pick_data();
+    }
+    $current_data = array();
+    if (isset($nationalitaet_field['data']) && is_array($nationalitaet_field['data'])) {
+        $current_data = $nationalitaet_field['data'];
+    }
+
+    if ($current_data === $target_data) {
+        return true;
+    }
+
+    $nationalitaet_field['data'] = $target_data;
+    $nationalitaet_field['pick_format_type'] = 'single';
+    $nationalitaet_field['allow_other'] = true;
+
+    $result = $api->save_field($nationalitaet_field);
+    if (is_wp_error($result)) {
+        $errors[] = sprintf(
+            'Feld nationalitaet konnte nicht aktualisiert werden: %s',
             implode('; ', $result->get_error_messages())
         );
         return false;
@@ -352,22 +540,10 @@ register_activation_hook($meldetool_main_file, function() {
                     'name' => 'nationalitaet',
                     'label' => 'Nationalität',
                     'type' => 'pick',
-                    'data' => array(
-                        'DEU' => 'Deutschland',
-                        'FRA' => 'Frankreich',
-                        'GRC' => 'Griechenland',
-                        'CHE' => 'Schweiz',
-                        'AUT' => 'Österreich',
-                        'CZE' => 'Tschechische Republik',
-                        'LUX' => 'Luxemburg',
-                        'BEL' => 'Belgien',
-                        'NLD' => 'Niederlande',
-                        'ITA' => 'Italien',
-                        'AUS' => 'Australien',
-                        'NOR' => 'Norwegen',
-                        'USA' => 'Vereinigte Staaten von Amerika',
-                        'ZAF' => 'Südafrika',
-                    ), 'allow_other' => true, 'required' => true),
+                    'data' => meldetool_get_configured_nationality_pick_data(),
+                    'allow_other' => true,
+                    'required' => true,
+                ),
                 array('name' => 'iban', 'label' => 'IBAN (nur Einzelstarter)', 'type' => 'text'),
                 array('name' => 'bic', 'label' => 'BIC (nur Einzelstarter)', 'type' => 'text'),
                 array('name' => 'kontoinhaber', 'label' => 'Kontoinhaber (nur Einzelstarter)', 'type' => 'text'),
@@ -423,6 +599,7 @@ register_activation_hook($meldetool_main_file, function() {
         update_option('meldetool_etappen_field_sync_version', '2026-05-etappen-v2', false);
         set_transient('meldetool_etappen_field_sync_success', 1, 60);
     }
+    meldetool_sync_existing_nationalitaet_field($errors);
 
     // Hinweis für Administratoren setzen: manuelle Verknüpfung in Pods prüfen
     set_transient('meldetool_show_pod_connections_notice', 1, 60);
@@ -452,6 +629,7 @@ register_activation_hook($meldetool_main_file, function() {
             'cc_email' => '',
             'etappen_options_u17' => "Etappe 1\nEtappe 2-4\nEtappe 1-4",
             'etappen_options_hobby' => "Solitude\nMagstadt\nSolitude & Magstadt",
+            'nationality_codes' => meldetool_nationality_pick_data_to_option_text(meldetool_default_nationality_pick_data()),
             'confirmation_subject' => $mail_defaults['confirmation_subject'],
             'confirmation_message' => $mail_defaults['confirmation_message'],
             'confirmation_subject_publish' => $mail_defaults['confirmation_subject_publish'],
@@ -496,14 +674,16 @@ add_action('admin_init', function() {
         return;
     }
 
-    $target_version = '2026-05-etappen-v2';
+    $target_version = '2026-05-etappen-nation-v1';
     $current_version = (string) get_option('meldetool_etappen_field_sync_version', '');
     if ($current_version === $target_version) {
         return;
     }
 
     $errors = array();
-    if (meldetool_sync_existing_etappen_auswahl_field($errors)) {
+    $etappen_ok = meldetool_sync_existing_etappen_auswahl_field($errors);
+    $nation_ok = meldetool_sync_existing_nationalitaet_field($errors);
+    if ($etappen_ok && $nation_ok) {
         update_option('meldetool_etappen_field_sync_version', $target_version, false);
         set_transient('meldetool_etappen_field_sync_success', 1, 60);
         return;

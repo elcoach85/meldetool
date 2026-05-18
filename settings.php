@@ -119,6 +119,18 @@ add_action('admin_init', function() {
         echo '<p class="description">Eine Option pro Zeile. Gilt nur für Hobbyteams.</p>';
     }, 'meldetool_settings', 'meldetool_main');
 
+    add_settings_field('nationality_codes', 'Nationalitätscodes (Fahrer)', function() {
+        $pick_data = function_exists('meldetool_get_configured_nationality_pick_data')
+            ? meldetool_get_configured_nationality_pick_data()
+            : array('DEU' => 'Deutschland', 'COL' => 'Kolumbien');
+        $val = function_exists('meldetool_nationality_pick_data_to_option_text')
+            ? esc_textarea(meldetool_nationality_pick_data_to_option_text($pick_data))
+            : esc_textarea("DEU=Deutschland\nCOL=Kolumbien");
+
+        printf('<textarea name="meldetool_options[nationality_codes]" rows="10" class="large-text code">%s</textarea>', $val);
+        echo '<p class="description">Eine Zeile pro Eintrag, z. B. <code>DEU=Deutschland</code> oder <code>COL=Kolumbien</code>. Trennzeichen <code>=</code>, <code>|</code> oder <code>;</code> sind erlaubt.</p>';
+    }, 'meldetool_settings', 'meldetool_main');
+
     add_settings_field('confirmation_subject', 'E-Mail Betreff', function() {
         $opts = get_option('meldetool_options', array());
         $defaults = meldetool_default_mail_texts();
@@ -195,6 +207,9 @@ add_action('admin_init', function() {
 function meldetool_sanitize_options($input) {
     $defaults = meldetool_default_mail_texts();
     $etappen_lists = meldetool_get_configured_etappen_lists($input);
+    $nationality_pick_data = function_exists('meldetool_get_configured_nationality_pick_data')
+        ? meldetool_get_configured_nationality_pick_data($input)
+        : array('DEU' => 'Deutschland', 'COL' => 'Kolumbien');
     $out = array();
 
     $out['enable_logging'] = !empty($input['enable_logging']) ? 1 : 0;
@@ -204,6 +219,9 @@ function meldetool_sanitize_options($input) {
     $out['cc_email'] = !empty($input['cc_email']) && is_email($input['cc_email']) ? sanitize_email($input['cc_email']) : '';
     $out['etappen_options_u17'] = implode("\n", $etappen_lists['u17']);
     $out['etappen_options_hobby'] = implode("\n", $etappen_lists['hobby']);
+    $out['nationality_codes'] = function_exists('meldetool_nationality_pick_data_to_option_text')
+        ? meldetool_nationality_pick_data_to_option_text($nationality_pick_data)
+        : "DEU=Deutschland\nCOL=Kolumbien";
     $out['confirmation_subject'] = isset($input['confirmation_subject']) && $input['confirmation_subject'] !== ''
         ? sanitize_text_field($input['confirmation_subject'])
         : $defaults['confirmation_subject'];
@@ -237,6 +255,15 @@ function meldetool_sanitize_options($input) {
         } elseif (!empty($errors)) {
             foreach ($errors as $err) {
                 add_settings_error('meldetool_options', 'meldetool_etappen_sync', $err, 'error');
+            }
+        }
+    }
+
+    if (function_exists('meldetool_sync_existing_nationalitaet_field')) {
+        $errors = array();
+        if (!meldetool_sync_existing_nationalitaet_field($errors, $nationality_pick_data) && !empty($errors)) {
+            foreach ($errors as $err) {
+                add_settings_error('meldetool_options', 'meldetool_nationality_sync', $err, 'error');
             }
         }
     }
