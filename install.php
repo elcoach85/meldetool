@@ -243,25 +243,30 @@ function meldetool_sync_existing_nationalitaet_field(&$errors, $target_data = nu
     }
 
     $api = pods_api();
-    if (!is_object($api) || !method_exists($api, 'load_pod') || !method_exists($api, 'save_field')) {
-        $errors[] = 'Pods-API unterstuetzt save_field nicht; Nationalitaeten konnten nicht automatisch aktualisiert werden.';
+    if (!is_object($api) || !method_exists($api, 'load_pod') || !method_exists($api, 'save_pod')) {
+        $errors[] = 'Pods-API unterstuetzt save_pod nicht; Nationalitaeten konnten nicht automatisch aktualisiert werden.';
         return false;
     }
 
     $fahrer_pod = $api->load_pod(array('name' => 'fahrer', 'type' => 'post_type'));
+    if (is_object($fahrer_pod) && method_exists($fahrer_pod, 'get_args')) {
+        $fahrer_pod = $fahrer_pod->get_args();
+    }
     if (empty($fahrer_pod) || !is_array($fahrer_pod) || empty($fahrer_pod['fields']) || !is_array($fahrer_pod['fields'])) {
         return false;
     }
 
+    $nationalitaet_field_index = null;
     $nationalitaet_field = null;
-    foreach ($fahrer_pod['fields'] as $field) {
-        if (isset($field['name']) && $field['name'] === 'nationalitaet') {
+    foreach ($fahrer_pod['fields'] as $index => $field) {
+        if ((isset($field['name']) && $field['name'] === 'nationalitaet') || (is_string($index) && $index === 'nationalitaet')) {
+            $nationalitaet_field_index = $index;
             $nationalitaet_field = $field;
             break;
         }
     }
 
-    if (!$nationalitaet_field || empty($nationalitaet_field['id'])) {
+    if ($nationalitaet_field_index === null || !is_array($nationalitaet_field)) {
         return false;
     }
 
@@ -282,11 +287,13 @@ function meldetool_sync_existing_nationalitaet_field(&$errors, $target_data = nu
         return true;
     }
 
-    $nationalitaet_field['data'] = $target_data;
-    $nationalitaet_field['pick_format_type'] = 'single';
-    $nationalitaet_field['allow_other'] = true;
+    $fahrer_pod['fields'][$nationalitaet_field_index]['data'] = $target_data;
+    $fahrer_pod['fields'][$nationalitaet_field_index]['pick_format_type'] = 'single';
+    $fahrer_pod['fields'][$nationalitaet_field_index]['pick_format_single'] = 'dropdown';
+    $fahrer_pod['fields'][$nationalitaet_field_index]['allow_other'] = true;
 
-    $result = $api->save_field($nationalitaet_field);
+    // Gleicher Mechanismus wie bei der initialen Installation: Pod-Definition speichern.
+    $result = $api->save_pod($fahrer_pod);
     if (is_wp_error($result)) {
         $errors[] = sprintf(
             'Feld nationalitaet konnte nicht aktualisiert werden: %s',
