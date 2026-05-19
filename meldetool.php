@@ -518,33 +518,35 @@ add_action('save_post_team', function($post_id, $post, $update) {
 /**
  * Single Source of Truth fuer Nationalitaeten in Pods-Pick-Feldern.
  *
- * Nutzt den von PodsForm bereitgestellten Hook unmittelbar vor dem Rendern
- * des Pick-Feldes (Admin und Frontend), damit stets die Werte aus den
- * Meldetool-Einstellungen verwendet werden.
+ * Verifiziert im Pods-Code (classes/fields/pick.php, data()-Methode):
+ * Der Filter 'pods_field_pick_data' wird unmittelbar vor der Rueckgabe der
+ * Dropdown-Optionen an das Formular aufgerufen – sowohl im Admin als auch
+ * im Frontend-Formular.
  *
- * Verifiziert im lokalen Pods-Code:
- * PodsForm::field() -> apply_filters("pods_form_ui_field_{$type}_options", ...)
- *
- * Hook: pods_form_ui_field_pick_options
+ * Hook: pods_field_pick_data
  */
-add_filter('pods_form_ui_field_pick_options', function($options, $value, $name, $pod, $id) {
+add_filter('pods_field_pick_data', function($data, $name, $value, $options, $pod, $id) {
     if ($name !== 'nationalitaet') {
-        return $options;
+        return $data;
     }
 
     if (!function_exists('meldetool_get_configured_nationality_pick_data')) {
-        return $options;
+        return $data;
     }
 
     $configured = meldetool_get_configured_nationality_pick_data();
     if (!is_array($configured) || empty($configured)) {
-        return $options;
+        return $data;
     }
 
-    $options['data'] = $configured;
+    // Placeholder-Option ("-- Select One --") beibehalten, falls vorhanden
+    $placeholder = [];
+    if (isset($data[''])) {
+        $placeholder = ['' => $data['']];
+    }
 
-    return $options;
-}, 10, 5);
+    return $placeholder + $configured;
+}, 10, 6);
 
 /**
  * Synchronisiert Post-Title mit Teamname direkt nach dem Speichern via Pods.
