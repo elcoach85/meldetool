@@ -975,7 +975,20 @@ add_action('wp_footer', function() {
                         }
                     }
 
+                    // UCI-ID-Pflichtvalidierung beim Absenden (greift auch wenn HTML5-Validation nicht ausgelöst wird)
+                    // Nur für Nicht-Hobbyteams, da Hobbyteams keine UCI-ID brauchen
                     if (!isHobbyTeam) {
+                        var uciInput = findFieldInput('uci_id', riderForm);
+                        if (uciInput) {
+                            var uciVal = uciInput.value;
+                            if (uciVal !== 'n/a' && !/^\d{11}$/.test(uciVal)) {
+                                e.preventDefault();
+                                uciInput.setCustomValidity('Die UCI-ID muss aus genau 11 Ziffern bestehen.');
+                                uciInput.reportValidity();
+                                uciInput.focus();
+                                return;
+                            }
+                        }
                         return;
                     }
 
