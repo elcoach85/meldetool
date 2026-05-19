@@ -268,18 +268,6 @@ function meldetool_sanitize_options($input) {
         }
     }
 
-    // Pods-Cache clearen, damit Feldoptionen sofort im Admin sichtbar sind
-    if (function_exists('pods_cache_clear')) {
-        pods_cache_clear('pods_pods');
-        pods_cache_clear('pods_pods_fahrer');
-        pods_cache_clear('pods_pods_team');
-    }
-    if (function_exists('wp_cache_delete')) {
-        wp_cache_delete('pods_pods', 'pods');
-        wp_cache_delete('pods_pods_fahrer', 'pods');
-        wp_cache_delete('pods_pods_team', 'pods');
-    }
-
     return $out;
 }
 

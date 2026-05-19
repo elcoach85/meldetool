@@ -516,125 +516,81 @@ add_action('save_post_team', function($post_id, $post, $update) {
 }, 10, 3);
 
 /**
- * Single Source of Truth fuer Nationalitaeten in Pods-Pick-Feldern.
+ * Schlanker Admin-Fallback fuer die Nationalitaetsliste.
  *
- * Verifiziert im Pods-Code (classes/fields/pick.php, data()-Methode):
- * Der Filter 'pods_field_pick_data' wird unmittelbar vor der Rueckgabe der
- * Dropdown-Optionen an das Formular aufgerufen – sowohl im Admin als auch
- * im Frontend-Formular.
- *
- * Hook: pods_field_pick_data
+ * Single Source of Truth bleibt die Meldetool-Einstellung
+ * `meldetool_options[nationality_codes]`.
+ * Dieser Hook sorgt nur fuer die Darstellung im Admin, falls Pods intern
+ * aus Cache/Altdefinitionen rendert.
  */
-add_filter('pods_field_pick_data', function($data, $name, $value, $options, $pod, $id) {
-    $field_name = strtolower(trim((string) $name));
-    if (strpos($field_name, 'pods_field_') === 0) {
-        $field_name = substr($field_name, 11);
-    }
-    $option_name = '';
-    if (is_array($options) && !empty($options['name'])) {
-        $option_name = strtolower(trim((string) $options['name']));
-        if (strpos($option_name, 'pods_field_') === 0) {
-            $option_name = substr($option_name, 11);
-        }
-    }
-
-    if ($field_name !== 'nationalitaet' && $option_name !== 'nationalitaet') {
-        return $data;
-    }
-
-    if (!function_exists('meldetool_get_configured_nationality_pick_data')) {
-        return $data;
+add_action('admin_footer', function() {
+    if (!is_admin() || !function_exists('meldetool_get_configured_nationality_pick_data')) {
+        return;
     }
 
     $configured = meldetool_get_configured_nationality_pick_data();
     if (!is_array($configured) || empty($configured)) {
-        return $data;
+        return;
     }
+    ?>
+    <script>
+    (function() {
+        var configured = <?php echo wp_json_encode($configured); ?>;
+        if (!configured || typeof configured !== 'object') return;
 
-    // Placeholder-Option ("-- Select One --") beibehalten, falls vorhanden
-    $placeholder = [];
-    if (isset($data[''])) {
-        $placeholder = ['' => $data['']];
-    }
-
-    return $placeholder + $configured;
-}, 10, 6);
-
-// Zusätzlicher Hook auf Options-Ebene (vor data()-Aufbereitung in PodsField_Pick).
-add_filter('pods_form_ui_field_pick_options', function($options, $value, $name, $pod, $id) {
-    $field_name = strtolower(trim((string) $name));
-    if (strpos($field_name, 'pods_field_') === 0) {
-        $field_name = substr($field_name, 11);
-    }
-
-    if ($field_name !== 'nationalitaet') {
-        return $options;
-    }
-
-    if (!function_exists('meldetool_get_configured_nationality_pick_data')) {
-        return $options;
-    }
-
-    $configured = meldetool_get_configured_nationality_pick_data();
-    if (!is_array($configured) || empty($configured)) {
-        return $options;
-    }
-
-    $options['data'] = $configured;
-    return $options;
-}, 10, 5);
-
-/**
- * Erzwingt die Nationalitaetsliste im Pods-Admin-Metabox-Rendering.
- *
- * Dieser Hook greift direkt auf die Felddefinitionen der Post-Edit-Metabox,
- * wodurch die konfigurierten Werte auch dann sichtbar werden, wenn andere
- * Pick-Hooks in bestimmten Admin-Flows nicht feuern.
- *
- * Hook: pods_meta_post_fields
- */
-add_filter('pods_meta_post_fields', function($fields, $id, $post, $metabox, $pod) {
-    if (!is_array($fields) || empty($fields)) {
-        return $fields;
-    }
-
-    if (!function_exists('meldetool_get_configured_nationality_pick_data')) {
-        return $fields;
-    }
-
-    $configured = meldetool_get_configured_nationality_pick_data();
-    if (!is_array($configured) || empty($configured)) {
-        return $fields;
-    }
-
-    foreach ($fields as $key => $field) {
-        if (!is_array($field)) {
-            continue;
+        function normalize(name) {
+            var n = String(name || '').toLowerCase();
+            if (n.indexOf('pods_field_') === 0) n = n.substring(11);
+            return n;
         }
 
-        $field_name = '';
-        if (!empty($field['name'])) {
-            $field_name = strtolower(trim((string) $field['name']));
-        } elseif (is_string($key)) {
-            $field_name = strtolower(trim($key));
+        function applyNationalityOptions() {
+            var selects = document.querySelectorAll('select');
+            var changed = false;
+
+            Array.prototype.forEach.call(selects, function(select) {
+                var fieldName = normalize(select.name || select.id || '');
+                if (fieldName !== 'nationalitaet') return;
+
+                var current = String(select.value || '');
+                var placeholder = '-- Auswaehlen --';
+                Array.prototype.forEach.call(select.options || [], function(opt) {
+                    if (opt && opt.value === '') placeholder = opt.text || placeholder;
+                });
+
+                while (select.options.length > 0) select.remove(0);
+
+                var empty = document.createElement('option');
+                empty.value = '';
+                empty.text = placeholder;
+                select.appendChild(empty);
+
+                Object.keys(configured).forEach(function(code) {
+                    var option = document.createElement('option');
+                    option.value = String(code);
+                    option.text = String(configured[code]);
+                    select.appendChild(option);
+                });
+
+                select.value = current;
+                if (select.tomselect && typeof select.tomselect.sync === 'function') {
+                    select.tomselect.sync();
+                }
+
+                changed = true;
+            });
+
+            return changed;
         }
 
-        if (strpos($field_name, 'pods_field_') === 0) {
-            $field_name = substr($field_name, 11);
+        if (!applyNationalityOptions()) {
+            setTimeout(applyNationalityOptions, 250);
+            setTimeout(applyNationalityOptions, 1000);
         }
-
-        if ($field_name !== 'nationalitaet') {
-            continue;
-        }
-
-        $field['data'] = $configured;
-        $field['pick_format_type'] = 'single';
-        $field['pick_format_single'] = 'dropdown';
-        $fields[$key] = $field;
-    }
-
-    return $fields;
-}, 10, 5);
+    })();
+    </script>
+    <?php
+});
 
 /**
  * Synchronisiert Post-Title mit Teamname direkt nach dem Speichern via Pods.

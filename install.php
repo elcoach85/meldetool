@@ -295,23 +295,6 @@ function meldetool_sync_existing_nationalitaet_field(&$errors, $target_data = nu
         return false;
     }
 
-    // Zusätzlicher Fallback: Auch Post Meta aktualisieren für tiefere Kompatibilität
-    if (!empty($nationalitaet_field['id'])) {
-        $pod_field_post_id = (int) $nationalitaet_field['id'];
-        if ($pod_field_post_id > 0) {
-            update_post_meta(
-                $pod_field_post_id,
-                'pick_display',
-                'dropdown'
-            );
-            update_post_meta(
-                $pod_field_post_id,
-                'data',
-                $target_data
-            );
-        }
-    }
-
     return true;
 }
 
@@ -623,7 +606,6 @@ register_activation_hook($meldetool_main_file, function() {
     }
     if (meldetool_sync_existing_nationalitaet_field($errors)) {
         update_option('meldetool_nationality_sync_version', '2026-05-nationality-v1', false);
-        set_transient('meldetool_nationality_field_sync_success', 1, 60);
     }
 
     // Hinweis für Administratoren setzen: manuelle Verknüpfung in Pods prüfen
@@ -717,7 +699,6 @@ add_action('admin_init', function() {
     if ($nationality_current !== $nationality_sync_version) {
         if (meldetool_sync_existing_nationalitaet_field($errors)) {
             update_option('meldetool_nationality_sync_version', $nationality_sync_version, false);
-            set_transient('meldetool_nationality_field_sync_success', 1, 60);
         }
     }
 
