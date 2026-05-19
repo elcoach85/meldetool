@@ -464,6 +464,43 @@ function meldetool_sync_team_post_title($post_id, $teamname = '') {
 }
 
 /**
+ * Liest den Teamnamen direkt aus dem aktuellen Admin-Request (Pods/WP-Formulare).
+ *
+ * Pods speichert Meta-Werte teils erst nach save_post. Mit diesem Helper kann
+ * save_post_team dennoch den neuen Namen beim ersten Speichern verwenden.
+ *
+ * @return string
+ */
+function meldetool_get_posted_teamname() {
+    if (empty($_POST) || !is_array($_POST)) {
+        return '';
+    }
+
+    $candidates = array();
+    if (isset($_POST['teamname'])) {
+        $candidates[] = $_POST['teamname'];
+    }
+    if (isset($_POST['pods_meta_teamname'])) {
+        $candidates[] = $_POST['pods_meta_teamname'];
+    }
+    if (isset($_POST['pods_meta']) && is_array($_POST['pods_meta']) && isset($_POST['pods_meta']['teamname'])) {
+        $candidates[] = $_POST['pods_meta']['teamname'];
+    }
+
+    foreach ($candidates as $raw) {
+        if (is_array($raw)) {
+            continue;
+        }
+        $value = trim(sanitize_text_field(wp_unslash((string) $raw)));
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return '';
+}
+
+/**
  * Synchronisiert Post-Title mit Teamname (Post Meta)
  * 
  * Macht Teamname in Admin-Liste und überall sichtbar
@@ -473,7 +510,8 @@ function meldetool_sync_team_post_title($post_id, $teamname = '') {
  * Hook: save_post_team (native WordPress Hook)
  */
 add_action('save_post_team', function($post_id, $post, $update) {
-    meldetool_sync_team_post_title($post_id);
+    $posted_teamname = meldetool_get_posted_teamname();
+    meldetool_sync_team_post_title($post_id, $posted_teamname);
 
 }, 10, 3);
 
