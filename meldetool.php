@@ -526,7 +526,19 @@ add_action('save_post_team', function($post_id, $post, $update) {
  * Hook: pods_field_pick_data
  */
 add_filter('pods_field_pick_data', function($data, $name, $value, $options, $pod, $id) {
-    if ($name !== 'nationalitaet') {
+    $field_name = strtolower(trim((string) $name));
+    if (strpos($field_name, 'pods_field_') === 0) {
+        $field_name = substr($field_name, 11);
+    }
+    $option_name = '';
+    if (is_array($options) && !empty($options['name'])) {
+        $option_name = strtolower(trim((string) $options['name']));
+        if (strpos($option_name, 'pods_field_') === 0) {
+            $option_name = substr($option_name, 11);
+        }
+    }
+
+    if ($field_name !== 'nationalitaet' && $option_name !== 'nationalitaet') {
         return $data;
     }
 
@@ -547,6 +559,30 @@ add_filter('pods_field_pick_data', function($data, $name, $value, $options, $pod
 
     return $placeholder + $configured;
 }, 10, 6);
+
+// Zusätzlicher Hook auf Options-Ebene (vor data()-Aufbereitung in PodsField_Pick).
+add_filter('pods_form_ui_field_pick_options', function($options, $value, $name, $pod, $id) {
+    $field_name = strtolower(trim((string) $name));
+    if (strpos($field_name, 'pods_field_') === 0) {
+        $field_name = substr($field_name, 11);
+    }
+
+    if ($field_name !== 'nationalitaet') {
+        return $options;
+    }
+
+    if (!function_exists('meldetool_get_configured_nationality_pick_data')) {
+        return $options;
+    }
+
+    $configured = meldetool_get_configured_nationality_pick_data();
+    if (!is_array($configured) || empty($configured)) {
+        return $options;
+    }
+
+    $options['data'] = $configured;
+    return $options;
+}, 10, 5);
 
 /**
  * Synchronisiert Post-Title mit Teamname direkt nach dem Speichern via Pods.
