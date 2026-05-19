@@ -516,44 +516,35 @@ add_action('save_post_team', function($post_id, $post, $update) {
 }, 10, 3);
 
 /**
- * Injiziert aktuelle Nationalitätsliste in die Pods-Pod-Definition.
+ * Single Source of Truth fuer Nationalitaeten in Pods-Pick-Feldern.
  *
- * Dies ist die "Single Source of Truth": Die Pods-Pod wird mit den aktuellen
- * Einstellungswerten versorgt, bevor sie gerendert wird. Funktioniert im Admin
- * und im Frontend.
+ * Nutzt den von PodsForm bereitgestellten Hook unmittelbar vor dem Rendern
+ * des Pick-Feldes (Admin und Frontend), damit stets die Werte aus den
+ * Meldetool-Einstellungen verwendet werden.
  *
- * Hook: pods_api_load_pod (Pods lädt Pod-Definition)
+ * Verifiziert im lokalen Pods-Code:
+ * PodsForm::field() -> apply_filters("pods_form_ui_field_{$type}_options", ...)
+ *
+ * Hook: pods_form_ui_field_pick_options
  */
-add_filter('pods_api_load_pod', function($pod, $params) {
-    // Nur auf Fahrer-Pod und das Nationalitäts-Feld begrenzen
-    if (empty($pod) || !is_array($pod) || $pod['name'] !== 'fahrer') {
-        return $pod;
+add_filter('pods_form_ui_field_pick_options', function($options, $value, $name, $pod, $id) {
+    if ($name !== 'nationalitaet') {
+        return $options;
     }
 
     if (!function_exists('meldetool_get_configured_nationality_pick_data')) {
-        return $pod;
-    }
-
-    if (empty($pod['fields']) || !is_array($pod['fields'])) {
-        return $pod;
+        return $options;
     }
 
     $configured = meldetool_get_configured_nationality_pick_data();
     if (!is_array($configured) || empty($configured)) {
-        return $pod;
+        return $options;
     }
 
-    // Finde das nationalitaet-Feld und aktualisiere seine Optionen
-    foreach ($pod['fields'] as &$field) {
-        if (isset($field['name']) && $field['name'] === 'nationalitaet' && isset($field['type']) && $field['type'] === 'pick') {
-            $field['data'] = $configured;
-            break;
-        }
-    }
-    unset($field); // Referenz-Cleanup
+    $options['data'] = $configured;
 
-    return $pod;
-}, 10, 2);
+    return $options;
+}, 10, 5);
 
 /**
  * Synchronisiert Post-Title mit Teamname direkt nach dem Speichern via Pods.
