@@ -924,12 +924,57 @@ add_action('wp_footer', function() {
                 applyVisibility();
             });
 
-            // Registriere Form-Submit-Handler fuer Hobbyteam-Validierung
+            // Registriere Form-Submit-Handler fuer Hobbyteam-Validierung und Etappenauswahl
             var riderForm = teamSelect.closest('form') || document;
             if (riderForm && riderForm.addEventListener) {
                 riderForm.addEventListener('submit', function(e) {
                     var selectedTeamId = asInt(teamSelect.value);
                     var isHobbyTeam = optionalTeamIds.indexOf(selectedTeamId) !== -1;
+                    var isU17 = u17TeamIds.indexOf(selectedTeamId) !== -1;
+
+                    // Etappenauswahl-Pflichtfeld-Validierung (greift auch wenn Tom Select das required-Attribut ignoriert)
+                    if (isHobbyTeam || isU17) {
+                        var etappenSelect = riderForm.querySelector(
+                            'select[name="pods_field_etappen_auswahl"], select[name="pods_field_etappen-auswahl"], select[name="etappen_auswahl"]'
+                        );
+                        var etappenRadios = riderForm.querySelectorAll(
+                            'input[type="radio"][name="pods_field_etappen_auswahl"], ' +
+                            'input[type="radio"][name="pods_field_etappen-auswahl"], ' +
+                            'input[type="radio"][name="etappen_auswahl"]'
+                        );
+                        var etappenValue = '';
+                        if (etappenSelect) {
+                            etappenValue = etappenSelect.value;
+                        } else if (etappenRadios.length > 0) {
+                            Array.prototype.forEach.call(etappenRadios, function(radio) {
+                                if (radio.checked) etappenValue = radio.value;
+                            });
+                        }
+                        if (!etappenValue) {
+                            e.preventDefault();
+                            var etappenWrap = findFieldWrap('etappen_auswahl', riderForm);
+                            if (etappenWrap) {
+                                etappenWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                var errorId = 'meldetool-etappen-error';
+                                if (!riderForm.querySelector('#' + errorId)) {
+                                    var errorEl = document.createElement('span');
+                                    errorEl.id = errorId;
+                                    errorEl.style.color = '#dc2626';
+                                    errorEl.style.fontSize = '13px';
+                                    errorEl.style.display = 'block';
+                                    errorEl.style.marginTop = '4px';
+                                    errorEl.textContent = 'Bitte wähle eine Etappe aus.';
+                                    etappenWrap.appendChild(errorEl);
+                                }
+                            }
+                            if (etappenSelect) etappenSelect.focus();
+                            return;
+                        } else {
+                            var existingError = riderForm.querySelector('#meldetool-etappen-error');
+                            if (existingError) existingError.remove();
+                        }
+                    }
+
                     if (!isHobbyTeam) {
                         return;
                     }
