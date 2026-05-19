@@ -742,6 +742,7 @@ add_action('wp_footer', function() {
             uciInput.dataset.meldetoolUciValidation = '1';
 
             var errorEl = document.createElement('span');
+            errorEl.id = 'meldetool-uci-error';
             errorEl.style.color = '#dc2626';
             errorEl.style.fontSize = '13px';
             errorEl.style.marginTop = '4px';
@@ -751,27 +752,51 @@ add_action('wp_footer', function() {
                 uciInput.parentNode.insertBefore(errorEl, uciInput.nextSibling);
             }
 
-            function validateUci() {
+            function isUciRequired() {
                 var selId = asInt(teamSel.value);
-                var isHobby = optionalTeamIds.indexOf(selId) !== -1;
-                var val = uciInput.value;
-                if (isHobby || val === '' || val === 'n/a') {
+                return optionalTeamIds.indexOf(selId) === -1;
+            }
+
+            function validateUci() {
+                if (!isUciRequired()) {
                     uciInput.setCustomValidity('');
                     errorEl.style.display = 'none';
-                    return;
+                    return true;
                 }
-                if (/^\d{11}$/.test(val)) {
+                var val = uciInput.value;
+                if (val === 'n/a' || /^\d{11}$/.test(val)) {
                     uciInput.setCustomValidity('');
                     errorEl.style.display = 'none';
-                } else {
-                    uciInput.setCustomValidity('Die UCI-ID muss aus genau 11 Ziffern bestehen.');
-                    errorEl.style.display = '';
+                    return true;
+                }
+                uciInput.setCustomValidity('Die UCI-ID muss aus genau 11 Ziffern bestehen.');
+                errorEl.style.display = '';
+                return false;
+            }
+
+            function blockIfInvalid(e) {
+                if (!validateUci()) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    uciInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    try { uciInput.reportValidity(); } catch(ex) {}
+                    uciInput.focus();
                 }
             }
 
             uciInput.addEventListener('input', validateUci);
             uciInput.addEventListener('blur', validateUci);
             teamSel.addEventListener('change', validateUci);
+
+            // Submit blockieren – sowohl über form submit als auch über Button-Click
+            if (riderForm && riderForm.addEventListener) {
+                riderForm.addEventListener('submit', blockIfInvalid, true); // capture phase
+            }
+            // Pods nutzt manchmal Click auf den Submit-Button statt form.submit()
+            var submitBtn = riderForm.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', blockIfInvalid, true);
+            }
         }
 
         /**
@@ -975,20 +1000,11 @@ add_action('wp_footer', function() {
                         }
                     }
 
+                    // UCI-ID-Validierung erfolgt bereits in setupUciIdValidation() (capture phase, blockiert dort)
+
                     // UCI-ID-Pflichtvalidierung beim Absenden (greift auch wenn HTML5-Validation nicht ausgelöst wird)
                     // Nur für Nicht-Hobbyteams, da Hobbyteams keine UCI-ID brauchen
                     if (!isHobbyTeam) {
-                        var uciInput = findFieldInput('uci_id', riderForm);
-                        if (uciInput) {
-                            var uciVal = uciInput.value;
-                            if (uciVal !== 'n/a' && !/^\d{11}$/.test(uciVal)) {
-                                e.preventDefault();
-                                uciInput.setCustomValidity('Die UCI-ID muss aus genau 11 Ziffern bestehen.');
-                                uciInput.reportValidity();
-                                uciInput.focus();
-                                return;
-                            }
-                        }
                         return;
                     }
 
