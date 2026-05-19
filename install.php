@@ -243,57 +243,42 @@ function meldetool_sync_existing_nationalitaet_field(&$errors, $target_data = nu
     }
 
     $api = pods_api();
-    if (!is_object($api) || !method_exists($api, 'load_pod') || !method_exists($api, 'save_pod')) {
-        $errors[] = 'Pods-API unterstuetzt save_pod nicht; Nationalitaeten konnten nicht automatisch aktualisiert werden.';
+    if (!is_object($api) || !method_exists($api, 'save_field')) {
+        $errors[] = 'Pods-API unterstuetzt save_field nicht; Nationalitaeten konnten nicht automatisch aktualisiert werden.';
         return false;
     }
 
-    $fahrer_pod = $api->load_pod(array('name' => 'fahrer', 'type' => 'post_type'));
-    if (is_object($fahrer_pod) && method_exists($fahrer_pod, 'get_args')) {
-        $fahrer_pod = $fahrer_pod->get_args();
-    }
-    if (empty($fahrer_pod) || !is_array($fahrer_pod) || empty($fahrer_pod['fields']) || !is_array($fahrer_pod['fields'])) {
-        return false;
-    }
+    // load_field(['pod'=>...,'name'=>...]) schlaegt fehl, weil load_pod() intern ein Objekt
+    // statt eines Arrays zurueckgibt. Daher: Feld-IDs direkt per DB-Query ermitteln.
+    global $wpdb;
+    $fahrer_pod_id = (int) $wpdb->get_var(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_type = '_pods_pod' AND post_name = 'fahrer' AND post_status = 'publish' LIMIT 1"
+    );
+    $field_post_id = $fahrer_pod_id ? (int) $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = '_pods_field' AND post_parent = %d AND post_name = %s AND post_status = 'publish' LIMIT 1",
+            $fahrer_pod_id, 'nationalitaet'
+        )
+    ) : 0;
 
-    $nationalitaet_field_index = null;
-    $nationalitaet_field = null;
-    foreach ($fahrer_pod['fields'] as $index => $field) {
-        if ((isset($field['name']) && $field['name'] === 'nationalitaet') || (is_string($index) && $index === 'nationalitaet')) {
-            $nationalitaet_field_index = $index;
-            $nationalitaet_field = $field;
-            break;
-        }
-    }
-
-    if ($nationalitaet_field_index === null || !is_array($nationalitaet_field)) {
+    if ($field_post_id < 1) {
         return false;
     }
 
     if (!is_array($target_data)) {
         $target_data = meldetool_get_configured_nationality_pick_data();
     }
-    $current_data = array();
-    if (isset($nationalitaet_field['data']) && is_array($nationalitaet_field['data'])) {
-        $current_data = $nationalitaet_field['data'];
-    }
 
-    // Vergleiche Inhalte (nicht Reihenfolge), da Array-Reihenfolge variabel ist
-    $current_sorted = $current_data;
-    $target_sorted = $target_data;
-    ksort($current_sorted);
-    ksort($target_sorted);
-    if ($current_sorted === $target_sorted) {
-        return true;
-    }
-
-    $fahrer_pod['fields'][$nationalitaet_field_index]['data'] = $target_data;
-    $fahrer_pod['fields'][$nationalitaet_field_index]['pick_format_type'] = 'single';
-    $fahrer_pod['fields'][$nationalitaet_field_index]['pick_format_single'] = 'dropdown';
-    $fahrer_pod['fields'][$nationalitaet_field_index]['allow_other'] = true;
-
-    // Gleicher Mechanismus wie bei der initialen Installation: Pod-Definition speichern.
-    $result = $api->save_pod($fahrer_pod);
+    $result = $api->save_field(array(
+        'id'                 => $field_post_id,
+        'pod_id'             => $fahrer_pod_id,
+        'name'               => 'nationalitaet',
+        'type'               => 'pick',
+        'data'               => $target_data,
+        'pick_format_type'   => 'single',
+        'pick_format_single' => 'dropdown',
+        'allow_other'        => true,
+    ));
     if (is_wp_error($result)) {
         $errors[] = sprintf(
             'Feld nationalitaet konnte nicht aktualisiert werden: %s',
@@ -612,7 +597,7 @@ register_activation_hook($meldetool_main_file, function() {
         set_transient('meldetool_etappen_field_sync_success', 1, 60);
     }
     if (meldetool_sync_existing_nationalitaet_field($errors)) {
-        update_option('meldetool_nationality_sync_version', '2026-05-nationality-v1', false);
+        update_option('meldetool_nationality_sync_version', '2026-05-nationality-v2', false);
     }
 
     // Hinweis für Administratoren setzen: manuelle Verknüpfung in Pods prüfen
@@ -701,7 +686,7 @@ add_action('admin_init', function() {
     }
 
     // Nationalitäts-Feldmigration (unabhängig)
-    $nationality_sync_version = '2026-05-nationality-v1';
+    $nationality_sync_version = '2026-05-nationality-v2';
     $nationality_current = (string) get_option('meldetool_nationality_sync_version', '');
     if ($nationality_current !== $nationality_sync_version) {
         if (meldetool_sync_existing_nationalitaet_field($errors)) {
@@ -749,7 +734,6 @@ add_action('admin_notices', function() {
     }
     echo '</ul><p>Bitte prüfen Sie Pods → Einstellungen und leeren Sie ggf. den Pods-Cache.</p></div>';
 });
-
 
 // Deinstallationsroutine: Nutzer fragen, ob Pods und Terms gelöscht werden sollen (UNTESTED!)
 register_uninstall_hook($meldetool_main_file, 'meldetool_uninstall');
