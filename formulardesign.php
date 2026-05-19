@@ -952,7 +952,7 @@ add_action('wp_footer', function() {
             // Registriere Form-Submit-Handler fuer Hobbyteam-Validierung und Etappenauswahl
             var riderForm = teamSelect.closest('form') || document;
             if (riderForm && riderForm.addEventListener) {
-                riderForm.addEventListener('submit', function(e) {
+                var validateEtappenAndHobbyBeforeSubmit = function(e) {
                     var selectedTeamId = asInt(teamSelect.value);
                     var isHobbyTeam = optionalTeamIds.indexOf(selectedTeamId) !== -1;
                     var isU17 = u17TeamIds.indexOf(selectedTeamId) !== -1;
@@ -977,6 +977,7 @@ add_action('wp_footer', function() {
                         }
                         if (!etappenValue) {
                             e.preventDefault();
+                            e.stopImmediatePropagation();
                             var etappenWrap = findFieldWrap('etappen_auswahl', riderForm);
                             if (etappenWrap) {
                                 etappenWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1011,10 +1012,20 @@ add_action('wp_footer', function() {
                     var checkbox = riderForm.querySelector('#meldetool_hobby_liability_checkbox');
                     if (!checkbox || !checkbox.checked) {
                         e.preventDefault();
+                        e.stopImmediatePropagation();
                         if (checkbox) {
                             checkbox.focus();
                         }
                     }
+                };
+
+                // Capture-Phase, damit Pods-Handler nicht vor uns abschicken koennen
+                riderForm.addEventListener('submit', validateEtappenAndHobbyBeforeSubmit, true);
+
+                // Fallback: Manche Pods-Varianten triggern Submit ueber Button-Click
+                var submitButtons = riderForm.querySelectorAll('button[type="submit"], input[type="submit"], .pods-form-ui-submit');
+                Array.prototype.forEach.call(submitButtons, function(btn) {
+                    btn.addEventListener('click', validateEtappenAndHobbyBeforeSubmit, true);
                 });
             }
 
