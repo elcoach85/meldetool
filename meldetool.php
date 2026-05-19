@@ -585,6 +585,58 @@ add_filter('pods_form_ui_field_pick_options', function($options, $value, $name, 
 }, 10, 5);
 
 /**
+ * Erzwingt die Nationalitaetsliste im Pods-Admin-Metabox-Rendering.
+ *
+ * Dieser Hook greift direkt auf die Felddefinitionen der Post-Edit-Metabox,
+ * wodurch die konfigurierten Werte auch dann sichtbar werden, wenn andere
+ * Pick-Hooks in bestimmten Admin-Flows nicht feuern.
+ *
+ * Hook: pods_meta_post_fields
+ */
+add_filter('pods_meta_post_fields', function($fields, $id, $post, $metabox, $pod) {
+    if (!is_array($fields) || empty($fields)) {
+        return $fields;
+    }
+
+    if (!function_exists('meldetool_get_configured_nationality_pick_data')) {
+        return $fields;
+    }
+
+    $configured = meldetool_get_configured_nationality_pick_data();
+    if (!is_array($configured) || empty($configured)) {
+        return $fields;
+    }
+
+    foreach ($fields as $key => $field) {
+        if (!is_array($field)) {
+            continue;
+        }
+
+        $field_name = '';
+        if (!empty($field['name'])) {
+            $field_name = strtolower(trim((string) $field['name']));
+        } elseif (is_string($key)) {
+            $field_name = strtolower(trim($key));
+        }
+
+        if (strpos($field_name, 'pods_field_') === 0) {
+            $field_name = substr($field_name, 11);
+        }
+
+        if ($field_name !== 'nationalitaet') {
+            continue;
+        }
+
+        $field['data'] = $configured;
+        $field['pick_format_type'] = 'single';
+        $field['pick_format_single'] = 'dropdown';
+        $fields[$key] = $field;
+    }
+
+    return $fields;
+}, 10, 5);
+
+/**
  * Synchronisiert Post-Title mit Teamname direkt nach dem Speichern via Pods.
  *
  * Pods schreibt Metadaten NACH dem save_post-Hook, weshalb save_post_team
