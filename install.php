@@ -181,44 +181,40 @@ function meldetool_sync_existing_etappen_auswahl_field(&$errors, $target_data = 
     }
 
     $api = pods_api();
-    if (!is_object($api) || !method_exists($api, 'load_pod') || !method_exists($api, 'save_field')) {
+    if (!is_object($api) || !method_exists($api, 'save_field')) {
         $errors[] = 'Pods-API unterstuetzt save_field nicht; etappen_auswahl konnte nicht automatisch aktualisiert werden.';
         return false;
     }
 
-    $fahrer_pod = $api->load_pod(array('name' => 'fahrer', 'type' => 'post_type'));
-    if (empty($fahrer_pod) || !is_array($fahrer_pod) || empty($fahrer_pod['fields']) || !is_array($fahrer_pod['fields'])) {
-        return false;
-    }
+    // load_field(['pod'=>...,'name'=>...]) schlaegt fehl, weil load_pod() intern ein Objekt
+    // statt eines Arrays zurueckgibt. Daher: Feld-IDs direkt per DB-Query ermitteln.
+    global $wpdb;
+    $fahrer_pod_id = (int) $wpdb->get_var(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_type = '_pods_pod' AND post_name = 'fahrer' AND post_status = 'publish' LIMIT 1"
+    );
+    $field_post_id = $fahrer_pod_id ? (int) $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = '_pods_field' AND post_parent = %d AND post_name = %s AND post_status = 'publish' LIMIT 1",
+            $fahrer_pod_id, 'etappen_auswahl'
+        )
+    ) : 0;
 
-    $etappen_field = null;
-    foreach ($fahrer_pod['fields'] as $field) {
-        if (isset($field['name']) && $field['name'] === 'etappen_auswahl') {
-            $etappen_field = $field;
-            break;
-        }
-    }
-
-    if (!$etappen_field || empty($etappen_field['id'])) {
+    if ($field_post_id < 1) {
         return false;
     }
 
     if (!is_array($target_data)) {
         $target_data = meldetool_get_all_etappen_pick_data();
     }
-    $current_data = array();
-    if (isset($etappen_field['data']) && is_array($etappen_field['data'])) {
-        $current_data = $etappen_field['data'];
-    }
 
-    if ($current_data === $target_data) {
-        return true;
-    }
-
-    $etappen_field['data'] = $target_data;
-    $etappen_field['pick_format_type'] = 'single';
-
-    $result = $api->save_field($etappen_field);
+    $result = $api->save_field(array(
+        'id'               => $field_post_id,
+        'pod_id'           => $fahrer_pod_id,
+        'name'             => 'etappen_auswahl',
+        'type'             => 'pick',
+        'data'             => $target_data,
+        'pick_format_type' => 'single',
+    ));
     if (is_wp_error($result)) {
         $errors[] = sprintf(
             'Feld etappen_auswahl konnte nicht aktualisiert werden: %s',
@@ -593,7 +589,7 @@ register_activation_hook($meldetool_main_file, function() {
     }*/
 
     if (meldetool_sync_existing_etappen_auswahl_field($errors)) {
-        update_option('meldetool_etappen_field_sync_version', '2026-05-etappen-v2', false);
+        update_option('meldetool_etappen_field_sync_version', '2026-05-etappen-v3', false);
         set_transient('meldetool_etappen_field_sync_success', 1, 60);
     }
     if (meldetool_sync_existing_nationalitaet_field($errors)) {
@@ -676,7 +672,7 @@ add_action('admin_init', function() {
     $errors = array();
 
     // Etappen-Feldmigration (unabhängig)
-    $etappen_sync_version = '2026-05-etappen-v2';
+    $etappen_sync_version = '2026-05-etappen-v3';
     $etappen_current = (string) get_option('meldetool_etappen_field_sync_version', '');
     if ($etappen_current !== $etappen_sync_version) {
         if (meldetool_sync_existing_etappen_auswahl_field($errors)) {
