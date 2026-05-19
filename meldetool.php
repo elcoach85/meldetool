@@ -478,6 +478,34 @@ add_action('save_post_team', function($post_id, $post, $update) {
 }, 10, 3);
 
 /**
+ * Synchronisiert Post-Title mit Teamname direkt nach dem Speichern via Pods.
+ *
+ * Pods schreibt Metadaten NACH dem save_post-Hook, weshalb save_post_team
+ * noch den alten Wert liest. Dieser Hook liefert den neuen Teamnamen
+ * direkt aus den gespeicherten Pods-Felddaten, ohne auf Post Meta angewiesen zu sein.
+ *
+ * Hook: pods_api_post_save_pod_item_team
+ */
+add_action('pods_api_post_save_pod_item_team', function($pieces) {
+    $post_id = isset($pieces['id']) ? (int) $pieces['id'] : 0;
+    if (!$post_id) {
+        return;
+    }
+
+    $new_teamname = '';
+    if (!empty($pieces['fields']['teamname']['value'])) {
+        $new_teamname = trim((string) $pieces['fields']['teamname']['value']);
+    } elseif (!empty($pieces['fields']['teamname'])) {
+        $val = $pieces['fields']['teamname'];
+        if (is_string($val)) {
+            $new_teamname = trim($val);
+        }
+    }
+
+    meldetool_sync_team_post_title($post_id, $new_teamname);
+}, 10, 1);
+
+/**
  * Synchronisiert Post-Title mit Fahrer-Name (Vorname + Nachname)
  * 
  * Macht Fahrernamen in Admin-Listen suchbar und sichtbar
