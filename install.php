@@ -273,7 +273,12 @@ function meldetool_sync_existing_nationalitaet_field(&$errors, $target_data = nu
         $current_data = $nationalitaet_field['data'];
     }
 
-    if ($current_data === $target_data) {
+    // Vergleiche Inhalte (nicht Reihenfolge), da Array-Reihenfolge variabel ist
+    $current_sorted = $current_data;
+    $target_sorted = $target_data;
+    ksort($current_sorted);
+    ksort($target_sorted);
+    if ($current_sorted === $target_sorted) {
         return true;
     }
 
@@ -288,6 +293,23 @@ function meldetool_sync_existing_nationalitaet_field(&$errors, $target_data = nu
             implode('; ', $result->get_error_messages())
         );
         return false;
+    }
+
+    // Zusätzlicher Fallback: Auch Post Meta aktualisieren für tiefere Kompatibilität
+    if (!empty($nationalitaet_field['id'])) {
+        $pod_field_post_id = (int) $nationalitaet_field['id'];
+        if ($pod_field_post_id > 0) {
+            update_post_meta(
+                $pod_field_post_id,
+                'pick_display',
+                'dropdown'
+            );
+            update_post_meta(
+                $pod_field_post_id,
+                'data',
+                $target_data
+            );
+        }
     }
 
     return true;
@@ -599,7 +621,10 @@ register_activation_hook($meldetool_main_file, function() {
         update_option('meldetool_etappen_field_sync_version', '2026-05-etappen-v2', false);
         set_transient('meldetool_etappen_field_sync_success', 1, 60);
     }
-    meldetool_sync_existing_nationalitaet_field($errors);
+    if (meldetool_sync_existing_nationalitaet_field($errors)) {
+        update_option('meldetool_nationality_sync_version', '2026-05-nationality-v1', false);
+        set_transient('meldetool_nationality_field_sync_success', 1, 60);
+    }
 
     // Hinweis für Administratoren setzen: manuelle Verknüpfung in Pods prüfen
     set_transient('meldetool_show_pod_connections_notice', 1, 60);
@@ -674,19 +699,26 @@ add_action('admin_init', function() {
         return;
     }
 
-    $target_version = '2026-05-etappen-nation-v1';
-    $current_version = (string) get_option('meldetool_etappen_field_sync_version', '');
-    if ($current_version === $target_version) {
-        return;
+    $errors = array();
+
+    // Etappen-Feldmigration (unabhängig)
+    $etappen_sync_version = '2026-05-etappen-v2';
+    $etappen_current = (string) get_option('meldetool_etappen_field_sync_version', '');
+    if ($etappen_current !== $etappen_sync_version) {
+        if (meldetool_sync_existing_etappen_auswahl_field($errors)) {
+            update_option('meldetool_etappen_field_sync_version', $etappen_sync_version, false);
+            set_transient('meldetool_etappen_field_sync_success', 1, 60);
+        }
     }
 
-    $errors = array();
-    $etappen_ok = meldetool_sync_existing_etappen_auswahl_field($errors);
-    $nation_ok = meldetool_sync_existing_nationalitaet_field($errors);
-    if ($etappen_ok && $nation_ok) {
-        update_option('meldetool_etappen_field_sync_version', $target_version, false);
-        set_transient('meldetool_etappen_field_sync_success', 1, 60);
-        return;
+    // Nationalitäts-Feldmigration (unabhängig)
+    $nationality_sync_version = '2026-05-nationality-v1';
+    $nationality_current = (string) get_option('meldetool_nationality_sync_version', '');
+    if ($nationality_current !== $nationality_sync_version) {
+        if (meldetool_sync_existing_nationalitaet_field($errors)) {
+            update_option('meldetool_nationality_sync_version', $nationality_sync_version, false);
+            set_transient('meldetool_nationality_field_sync_success', 1, 60);
+        }
     }
 
     if (!empty($errors)) {
