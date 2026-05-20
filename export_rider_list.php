@@ -173,7 +173,6 @@ add_action('admin_init', function () {
                     'vorname'      => html_entity_decode((string)get_post_meta($f->ID, 'vorname', true),      ENT_QUOTES, 'UTF-8'),
                     'team'         => html_entity_decode(get_the_title($team->ID),                            ENT_QUOTES, 'UTF-8'),
                     'kategorie'    => html_entity_decode($kategorie,                                          ENT_QUOTES, 'UTF-8'),
-                    'lizenznummer' => html_entity_decode((string)get_post_meta($f->ID, 'lizenznummer', true), ENT_QUOTES, 'UTF-8'),
                     'uci_id'       => html_entity_decode((string)get_post_meta($f->ID, 'uci_id', true),       ENT_QUOTES, 'UTF-8'),
                 );
             }
@@ -227,7 +226,6 @@ td.col-rest { padding-left: 2em; }
         foreach ($section['rows'] as $row) {
             $rest = implode(', ', array_filter(array(
                 $row['kategorie'],
-                $row['lizenznummer'],
                 $row['uci_id'],
             )));
             echo '<tr>';
