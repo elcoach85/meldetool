@@ -1138,6 +1138,7 @@ add_shortcode('meldetool_starterliste', function($atts) {
                     'kategorie'    => $kategorie,
                     'lizenznummer' => (string)get_post_meta($f->ID, 'lizenznummer', true),
                     'uci_id'       => (string)get_post_meta($f->ID, 'uci_id', true),
+                    'etappen_auswahl' => (string)get_post_meta($f->ID, 'etappen_auswahl', true),
                 );
             }
         }
@@ -1153,10 +1154,15 @@ add_shortcode('meldetool_starterliste', function($atts) {
                . '<th>Kategorie / UCI-ID</th>'
                . '</tr></thead><tbody>';
         foreach ($rows as $row) {
-            $rest = implode(', ', array_filter(array(
+            $show_etappen = (stripos($row['kategorie'], 'Hobby') !== false || stripos($row['kategorie'], 'U17') !== false);
+            $rest_parts = array(
                 esc_html($row['kategorie']),
                 esc_html($row['uci_id']),
-            )));
+            );
+            if ($show_etappen && !empty($row['etappen_auswahl'])) {
+                $rest_parts[] = esc_html($row['etappen_auswahl']);
+            }
+            $rest = implode(', ', array_filter($rest_parts));
             $html .= '<tr>';
             $html .= '<td>' . esc_html($row['nachname'] . ', ' . $row['vorname']) . '</td>';
             $html .= '<td>' . esc_html($row['team']) . '</td>';
