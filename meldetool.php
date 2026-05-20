@@ -1046,7 +1046,7 @@ add_filter('posts_clauses', function($clauses, $query) {
  *
  * Gibt die Starterliste als HTML-Tabelle aus, gruppiert nach Rennklassen.
  * Sortierung: Rennklasse (A–Z) → Team (A–Z) → Kapitän zuerst → Nachname → Vorname.
- * Spalten: Nachname, Vorname | Teamname | Kategorie, Lizenznummer, UCI-ID
+ * Spalten: Nachname, Vorname | Teamname | Kategorie, UCI-ID
  *
  * Verwendung: Shortcode [meldetool_starterliste] auf einer beliebigen Seite einfügen.
  * Optional: [meldetool_starterliste einzel="einzelstarter"] (Standard-Schlüsselwort für Einzel-Teams)
@@ -1150,12 +1150,11 @@ add_shortcode('meldetool_starterliste', function($atts) {
         $html .= '<thead><tr>'
                . '<th>Name</th>'
                . '<th>Team</th>'
-               . '<th>Kategorie / Lizenz / UCI-ID</th>'
+               . '<th>Kategorie / UCI-ID</th>'
                . '</tr></thead><tbody>';
         foreach ($rows as $row) {
             $rest = implode(', ', array_filter(array(
                 esc_html($row['kategorie']),
-                esc_html($row['lizenznummer']),
                 esc_html($row['uci_id']),
             )));
             $html .= '<tr>';
