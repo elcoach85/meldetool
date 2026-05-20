@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Meldetool
  * Description: A solution to let team managers create their team and add participants to the teams.
- * Version: 1.0.1
+ * Version: 1.0.2
  * Plugin URI: https://the-race-days-stuttgart.org
  * Author: Nino Häberlen
  * Author URI: https://the-race-days-stuttgart.org
