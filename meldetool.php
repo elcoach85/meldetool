@@ -784,7 +784,17 @@ add_action('manage_team_posts_custom_column', function($column, $post_id) {
 
         case 'fahrer_gesamt':
             $counts = meldetool_get_team_rider_counts();
-            echo (int) ($counts[(int) $post_id] ?? 0);
+            $count = (int) ($counts[(int) $post_id] ?? 0);
+            if ($count > 0) {
+                $url = admin_url('edit.php?post_type=fahrer&team_filter=' . (int) $post_id);
+                printf(
+                    '<a href="%s">%d</a>',
+                    esc_url($url),
+                    $count
+                );
+            } else {
+                echo 0;
+            }
             break;
 
         case 'rennklasse':
