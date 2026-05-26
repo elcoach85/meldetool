@@ -309,12 +309,113 @@ function meldetool_get_u17_team_ids() {
 }
 
 
+/**
+ * Liefert das Mapping Rennklasse-Term-ID => Teilnehmerlimit.
+ *
+ * Quelle: meldetool_options['limits_rennklasse']. Werte <= 0 oder leere
+ * Eintraege werden als "kein Limit" interpretiert und ausgefiltert.
+ *
+ * @return array<int,int>
+ */
+function meldetool_get_rennklasse_limits() {
+    $opts = get_option('meldetool_options', array());
+    $raw  = isset($opts['limits_rennklasse']) && is_array($opts['limits_rennklasse'])
+        ? $opts['limits_rennklasse']
+        : array();
+    $out = array();
+    foreach ($raw as $term_id => $limit) {
+        $term_id = (int) $term_id;
+        $limit   = (int) $limit;
+        if ($term_id > 0 && $limit > 0) {
+            $out[$term_id] = $limit;
+        }
+    }
+    return $out;
+}
 
+/**
+ * Zaehlt gemeldete Fahrer pro Rennklasse (Taxonomie am Team).
+ *
+ * Beruecksichtigt alle Fahrer-Posts ausser trash/auto-draft/inherit.
+ *
+ * @return array<int,int> term_id => count
+ */
+function meldetool_get_rennklasse_rider_counts() {
+    static $counts = null;
+    if ($counts !== null) {
+        return $counts;
+    }
 
+    global $wpdb;
+    $counts = array();
+    $rows = $wpdb->get_results(
+        "SELECT tt.term_id AS term_id, COUNT(DISTINCT f.ID) AS rider_count
+        FROM {$wpdb->posts} f
+        INNER JOIN {$wpdb->postmeta} pm ON (pm.post_id = f.ID AND pm.meta_key = 'team')
+        INNER JOIN {$wpdb->posts} t ON (t.ID = CAST(pm.meta_value AS UNSIGNED) AND t.post_type = 'team')
+        INNER JOIN {$wpdb->term_relationships} tr ON (tr.object_id = t.ID)
+        INNER JOIN {$wpdb->term_taxonomy} tt ON (tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'rennklasse')
+        WHERE f.post_type = 'fahrer'
+          AND f.post_status NOT IN ('trash', 'auto-draft', 'inherit')
+        GROUP BY tt.term_id",
+        ARRAY_A
+    );
+    if (!empty($rows)) {
+        foreach ($rows as $row) {
+            $counts[(int) $row['term_id']] = (int) $row['rider_count'];
+        }
+    }
+    return $counts;
+}
 
+/**
+ * Liefert die Term-IDs aller Rennklassen, deren Limit erreicht/ueberschritten ist.
+ *
+ * @return array<int>
+ */
+function meldetool_get_full_rennklasse_term_ids() {
+    $limits = meldetool_get_rennklasse_limits();
+    if (empty($limits)) {
+        return array();
+    }
+    $counts = meldetool_get_rennklasse_rider_counts();
+    $full = array();
+    foreach ($limits as $term_id => $limit) {
+        $count = (int) ($counts[$term_id] ?? 0);
+        if ($count >= $limit) {
+            $full[] = $term_id;
+        }
+    }
+    return $full;
+}
 
-
-
+/**
+ * Liefert die Team-IDs, deren Rennklasse(n) das Limit erreicht haben.
+ *
+ * Konservativ: Sobald eine zugeordnete Rennklasse voll ist, gilt das Team als voll.
+ *
+ * @return array<int>
+ */
+function meldetool_get_full_team_ids() {
+    $full_terms = meldetool_get_full_rennklasse_term_ids();
+    if (empty($full_terms)) {
+        return array();
+    }
+    $team_ids = get_posts(array(
+        'post_type'   => 'team',
+        'post_status' => 'any',
+        'numberposts' => -1,
+        'fields'      => 'ids',
+        'tax_query'   => array(
+            array(
+                'taxonomy' => 'rennklasse',
+                'field'    => 'term_id',
+                'terms'    => $full_terms,
+            ),
+        ),
+    ));
+    return array_values(array_unique(array_map('intval', (array) $team_ids)));
+}
 
 
 
@@ -356,6 +457,30 @@ add_filter('pods_form_validate_field_fahrer', function($valid, $value, $name, $o
     if ($name === 'iban' && !empty($value)) {
         $error = meldetool_validate_iban($value);
         if ($error !== null) return $error;
+    }
+    if ($name === 'team' && !empty($value)) {
+        $team_id = (int) (is_array($value) ? reset($value) : $value);
+        if ($team_id > 0) {
+            // Beim Update mit unveraendertem Team: Validierung ueberspringen, damit
+            // bereits gemeldete Fahrer weiter editiert werden koennen.
+            $previous_team_id = ((int) $id) > 0 ? (int) get_post_meta((int) $id, 'team', true) : 0;
+            if ($previous_team_id !== $team_id) {
+                $full_term_ids = meldetool_get_full_rennklasse_term_ids();
+                if (!empty($full_term_ids)) {
+                    $team_terms = get_the_terms($team_id, 'rennklasse');
+                    if (!empty($team_terms) && !is_wp_error($team_terms)) {
+                        foreach ($team_terms as $term) {
+                            if (in_array((int) $term->term_id, $full_term_ids, true)) {
+                                return sprintf(
+                                    "Die Rennklasse '%s' ist ausgebucht. Bitte ein Team aus einer anderen Rennklasse wählen.",
+                                    $term->name
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     return $valid;
 }, 10, 6);
@@ -1001,6 +1126,42 @@ add_filter('manage_edit-team_sortable_columns', function ($columns) {
     $columns['fahrer_gesamt'] = 'fahrer_gesamt';
     return $columns;
 });
+
+/**
+ * Admin: Spalte "Auslastung" in der Rennklassen-Taxonomieliste.
+ *
+ * Zeigt "count/limit" und faerbt den Zelleninhalt:
+ * - rot, wenn count >= limit (ausgebucht)
+ * - orange, ab >= 90 %
+ * - "—" wenn kein Limit gesetzt
+ */
+add_filter('manage_edit-rennklasse_columns', function ($columns) {
+    $columns['auslastung'] = 'Auslastung';
+    return $columns;
+});
+
+add_filter('manage_rennklasse_custom_column', function ($content, $column_name, $term_id) {
+    if ($column_name !== 'auslastung') {
+        return $content;
+    }
+    $term_id = (int) $term_id;
+    $limits  = meldetool_get_rennklasse_limits();
+    $counts  = meldetool_get_rennklasse_rider_counts();
+    $count   = (int) ($counts[$term_id] ?? 0);
+    if (empty($limits[$term_id])) {
+        return esc_html($count . ' / —');
+    }
+    $limit = (int) $limits[$term_id];
+    $ratio = $limit > 0 ? ($count / $limit) : 0;
+    $color = '';
+    if ($count >= $limit) {
+        $color = '#d63638';
+    } elseif ($ratio >= 0.9) {
+        $color = '#dba617';
+    }
+    $style = $color !== '' ? sprintf(' style="color:%s;font-weight:600;"', esc_attr($color)) : '';
+    return sprintf('<span%s>%d / %d</span>', $style, $count, $limit);
+}, 10, 3);
 
 /**
  * Standard-Sortierung in Fahrer-Adminliste:

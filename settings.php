@@ -202,6 +202,41 @@ add_action('admin_init', function() {
             : esc_textarea($defaults['rider_details_message']);
         printf('<textarea name="meldetool_options[rider_details_message]" rows="8" class="large-text">%s</textarea>', $val);
     }, 'meldetool_settings', 'meldetool_main');
+
+    add_settings_field('limits_rennklasse', 'Teilnehmerlimits Rennklassen', function() {
+        $opts = get_option('meldetool_options', array());
+        $limits = isset($opts['limits_rennklasse']) && is_array($opts['limits_rennklasse'])
+            ? $opts['limits_rennklasse']
+            : array();
+        $terms = get_terms(array(
+            'taxonomy'   => 'rennklasse',
+            'hide_empty' => false,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+        ));
+        if (is_wp_error($terms) || empty($terms)) {
+            echo '<p class="description">Keine Rennklassen vorhanden.</p>';
+            return;
+        }
+        $counts = function_exists('meldetool_get_rennklasse_rider_counts')
+            ? meldetool_get_rennklasse_rider_counts()
+            : array();
+        echo '<table class="widefat striped" style="max-width:520px;"><thead><tr><th>Rennklasse</th><th style="width:120px;">Limit</th><th style="width:120px;">Gemeldet</th></tr></thead><tbody>';
+        foreach ($terms as $term) {
+            $term_id = (int) $term->term_id;
+            $val = isset($limits[$term_id]) ? (int) $limits[$term_id] : 0;
+            $count = (int) ($counts[$term_id] ?? 0);
+            printf(
+                '<tr><td>%s</td><td><input type="number" min="0" step="1" name="meldetool_options[limits_rennklasse][%d]" value="%s" class="small-text" /></td><td>%d</td></tr>',
+                esc_html($term->name),
+                $term_id,
+                $val > 0 ? esc_attr((string) $val) : '',
+                $count
+            );
+        }
+        echo '</tbody></table>';
+        echo '<p class="description">Pro Rennklasse das maximal zulässige Teilnehmerlimit angeben. <strong>0 oder leer = kein Limit</strong>. Bei Erreichen werden Teams dieser Rennklasse im Fahrer-Anmeldeformular blockiert.</p>';
+    }, 'meldetool_settings', 'meldetool_main');
 });
 
 function meldetool_sanitize_options($input) {
@@ -246,6 +281,17 @@ function meldetool_sanitize_options($input) {
     $out['rider_details_message'] = isset($input['rider_details_message']) && $input['rider_details_message'] !== ''
         ? wp_kses_post($input['rider_details_message'])
         : $defaults['rider_details_message'];
+
+    $out['limits_rennklasse'] = array();
+    if (!empty($input['limits_rennklasse']) && is_array($input['limits_rennklasse'])) {
+        foreach ($input['limits_rennklasse'] as $term_id => $limit) {
+            $term_id = (int) $term_id;
+            $limit   = (int) $limit;
+            if ($term_id > 0 && $limit > 0) {
+                $out['limits_rennklasse'][$term_id] = $limit;
+            }
+        }
+    }
 
     if (function_exists('meldetool_sync_existing_etappen_auswahl_field') && function_exists('meldetool_get_all_etappen_pick_data')) {
         $errors = array();

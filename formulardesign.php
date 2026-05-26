@@ -23,6 +23,9 @@ add_action('wp_footer', function() {
     $optional_team_ids = meldetool_get_license_optional_team_ids();
     $iban_bic_team_ids = meldetool_get_iban_bic_visible_team_ids();
     $u17_team_ids      = meldetool_get_u17_team_ids();
+    $full_team_ids     = function_exists('meldetool_get_full_team_ids')
+        ? meldetool_get_full_team_ids()
+        : array();
     $etappen_lists = function_exists('meldetool_get_configured_etappen_lists')
         ? meldetool_get_configured_etappen_lists()
         : array(
@@ -65,6 +68,7 @@ add_action('wp_footer', function() {
         var optionalTeamIds = <?php echo wp_json_encode(array_values($optional_team_ids)); ?>;
         var ibanBicTeamIds = <?php echo wp_json_encode(array_values($iban_bic_team_ids)); ?>;
         var u17TeamIds = <?php echo wp_json_encode(array_values($u17_team_ids)); ?>;
+        var fullTeamIds = <?php echo wp_json_encode(array_values($full_team_ids)); ?>;
         var u17EtappenOptions = <?php echo wp_json_encode(array_values($etappen_lists['u17'])); ?>;
         var hobbyEtappenOptions = <?php echo wp_json_encode(array_values($etappen_lists['hobby'])); ?>;
         var nationalityOptions = <?php echo wp_json_encode($nationality_pick_data); ?>;
@@ -266,6 +270,59 @@ add_action('wp_footer', function() {
                 || document.querySelector('select[name="team"]')
                 || document.getElementById('pods-form-ui-pods-field-team')
                 || document.getElementById('pods-form-ui-team');
+        }
+
+        /**
+         * Deaktiviert im Team-Dropdown alle Options, deren Teams einer ausgebuchten
+         * Rennklasse angehoeren. Markiert das Label sichtbar mit " (ausgebucht)".
+         * Synchronisiert ggf. mit Tom Select.
+         */
+        function disableFullTeamOptions(teamSelect) {
+            if (!teamSelect || !teamSelect.options || fullTeamIds.length === 0) {
+                return;
+            }
+            var changed = false;
+            var currentlySelectedBlocked = false;
+            Array.prototype.forEach.call(teamSelect.options, function(opt) {
+                var optId = asInt(opt.value);
+                if (optId > 0 && fullTeamIds.indexOf(optId) !== -1) {
+                    if (!opt.disabled) {
+                        opt.disabled = true;
+                        changed = true;
+                    }
+                    if (opt.text.indexOf('(ausgebucht)') === -1) {
+                        opt.text = opt.text + ' (ausgebucht)';
+                    }
+                    if (opt.selected) {
+                        currentlySelectedBlocked = true;
+                    }
+                }
+            });
+            if (currentlySelectedBlocked) {
+                teamSelect.value = '';
+            }
+            if (teamSelect.tomselect) {
+                try {
+                    fullTeamIds.forEach(function(id) {
+                        if (teamSelect.tomselect.options[id]) {
+                            teamSelect.tomselect.updateOption(String(id), {
+                                value: String(id),
+                                text: (teamSelect.tomselect.options[id].text || '').replace(/\s*\(ausgebucht\)\s*$/, '') + ' (ausgebucht)',
+                                disabled: true
+                            });
+                        }
+                    });
+                    if (currentlySelectedBlocked) {
+                        teamSelect.tomselect.clear(true);
+                    }
+                    teamSelect.tomselect.refreshOptions(false);
+                } catch (e) {
+                    meldLog('[meldetool] tomselect disable failed: ' + e.message);
+                }
+            }
+            if (changed) {
+                meldLog('[meldetool] disabled full team options');
+            }
         }
 
         /**
@@ -939,6 +996,8 @@ add_action('wp_footer', function() {
             }
             meldLog('[meldetool] team select found, optional IDs: ' + JSON.stringify(optionalTeamIds));
             meldLog('[meldetool] iban/bic IDs: ' + JSON.stringify(ibanBicTeamIds));
+            meldLog('[meldetool] full (ausgebucht) team IDs: ' + JSON.stringify(fullTeamIds));
+            disableFullTeamOptions(teamSelect);
             logAllSelects();
             applyVisibility();
             setupUciIdValidation();
