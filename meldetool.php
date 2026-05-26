@@ -832,18 +832,9 @@ add_action('admin_head', function () {
  * Hook: restrict_manage_posts (Post List Filters)
  */
 add_action('restrict_manage_posts', function ($post_type) {
-    if ($post_type !== 'fahrer') {
+    if ($post_type !== 'fahrer' && $post_type !== 'team') {
         return;
     }
-
-    // Teams laden
-    $teams = get_posts([
-        'post_type'      => 'team',
-        'post_status'    => 'any',
-        'numberposts'    => -1,
-        'orderby'        => 'title',
-        'order'          => 'ASC',
-    ]);
 
     $rennklassen = get_terms([
         'taxonomy'   => 'rennklasse',
@@ -852,22 +843,34 @@ add_action('restrict_manage_posts', function ($post_type) {
         'order'      => 'ASC',
     ]);
 
-    $current_team = isset($_GET['team_filter']) ? (int) $_GET['team_filter'] : 0;
     $current_rennklasse = isset($_GET['rennklasse_filter']) ? (int) $_GET['rennklasse_filter'] : 0;
 
-    echo '<select name="team_filter" style="max-width:200px;">';
-    echo '<option value="0">Alle Teams</option>';
+    if ($post_type === 'fahrer') {
+        // Teams laden (nur fuer Fahrer-Liste)
+        $teams = get_posts([
+            'post_type'      => 'team',
+            'post_status'    => 'any',
+            'numberposts'    => -1,
+            'orderby'        => 'title',
+            'order'          => 'ASC',
+        ]);
 
-    foreach ($teams as $team) {
-        printf(
-            '<option value="%d"%s>%s</option>',
-            $team->ID,
-            selected($current_team, $team->ID, false),
-            esc_html($team->post_title)
-        );
+        $current_team = isset($_GET['team_filter']) ? (int) $_GET['team_filter'] : 0;
+
+        echo '<select name="team_filter" style="max-width:200px;">';
+        echo '<option value="0">Alle Teams</option>';
+
+        foreach ($teams as $team) {
+            printf(
+                '<option value="%d"%s>%s</option>',
+                $team->ID,
+                selected($current_team, $team->ID, false),
+                esc_html($team->post_title)
+            );
+        }
+
+        echo '</select>';
     }
-
-    echo '</select>';
 
     echo '<select name="rennklasse_filter" style="max-width:200px; margin-left:8px;">';
     echo '<option value="0">Alle Rennklassen</option>';
@@ -906,6 +909,16 @@ add_action('pre_get_posts', function ($query) {
         if ($query->get('orderby') === 'bezahlt') {
             $query->set('meta_key', 'bezahlt');
             $query->set('orderby', 'meta_value_num');
+        }
+
+        if (!empty($_GET['rennklasse_filter']) && intval($_GET['rennklasse_filter']) > 0) {
+            $tax_query = (array) $query->get('tax_query');
+            $tax_query[] = array(
+                'taxonomy' => 'rennklasse',
+                'field'    => 'term_id',
+                'terms'    => array(intval($_GET['rennklasse_filter'])),
+            );
+            $query->set('tax_query', $tax_query);
         }
         return;
     }
@@ -974,6 +987,8 @@ add_filter('manage_edit-fahrer_sortable_columns', function ($columns) {
 
 add_filter('manage_edit-team_sortable_columns', function ($columns) {
     $columns['bezahlt'] = 'bezahlt';
+    $columns['rennklasse'] = 'rennklasse';
+    $columns['fahrer_gesamt'] = 'fahrer_gesamt';
     return $columns;
 });
 
@@ -991,7 +1006,42 @@ add_filter('posts_clauses', function($clauses, $query) {
         return $clauses;
     }
 
-    if ($query->get('post_type') !== 'fahrer') {
+    $post_type = (string) $query->get('post_type');
+
+    if ($post_type === 'team') {
+        $orderby = (string) $query->get('orderby');
+        if (!in_array($orderby, array('rennklasse', 'fahrer_gesamt'), true)) {
+            return $clauses;
+        }
+
+        $order = strtoupper((string) $query->get('order'));
+        if (!in_array($order, array('ASC', 'DESC'), true)) {
+            $order = 'ASC';
+        }
+
+        global $wpdb;
+
+        if ($orderby === 'rennklasse') {
+            $clauses['join'] .= "\nLEFT JOIN {$wpdb->term_relationships} AS tr_rk_t ON ({$wpdb->posts}.ID = tr_rk_t.object_id)";
+            $clauses['join'] .= "\nLEFT JOIN {$wpdb->term_taxonomy} AS tt_rk_t ON (tr_rk_t.term_taxonomy_id = tt_rk_t.term_taxonomy_id AND tt_rk_t.taxonomy = 'rennklasse')";
+            $clauses['join'] .= "\nLEFT JOIN {$wpdb->terms} AS t_rk_t ON (tt_rk_t.term_id = t_rk_t.term_id)";
+            $clauses['groupby'] = "{$wpdb->posts}.ID";
+            $clauses['orderby'] = "COALESCE(MIN(t_rk_t.name), 'ZZZ') {$order}, {$wpdb->posts}.post_title ASC";
+        } elseif ($orderby === 'fahrer_gesamt') {
+            $clauses['join'] .= "\nLEFT JOIN (
+                SELECT CAST(pm.meta_value AS UNSIGNED) AS team_id, COUNT(1) AS rider_count
+                FROM {$wpdb->postmeta} pm
+                INNER JOIN {$wpdb->posts} fp ON (fp.ID = pm.post_id AND fp.post_type = 'fahrer' AND fp.post_status NOT IN ('trash','auto-draft','inherit'))
+                WHERE pm.meta_key = 'team'
+                GROUP BY CAST(pm.meta_value AS UNSIGNED)
+            ) AS rc ON (rc.team_id = {$wpdb->posts}.ID)";
+            $clauses['orderby'] = "COALESCE(rc.rider_count, 0) {$order}, {$wpdb->posts}.post_title ASC";
+        }
+
+        return $clauses;
+    }
+
+    if ($post_type !== 'fahrer') {
         return $clauses;
     }
 
