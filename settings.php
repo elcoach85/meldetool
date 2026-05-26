@@ -221,17 +221,33 @@ add_action('admin_init', function() {
         $counts = function_exists('meldetool_get_rennklasse_rider_counts')
             ? meldetool_get_rennklasse_rider_counts()
             : array();
-        echo '<table class="widefat striped" style="max-width:520px;"><thead><tr><th>Rennklasse</th><th style="width:120px;">Limit</th><th style="width:120px;">Gemeldet</th></tr></thead><tbody>';
+        echo '<table class="widefat striped" style="max-width:620px;"><thead><tr><th>Rennklasse</th><th style="width:120px;">Limit</th><th style="width:120px;">Gemeldet</th><th style="width:140px;">Auslastung</th></tr></thead><tbody>';
         foreach ($terms as $term) {
             $term_id = (int) $term->term_id;
             $val = isset($limits[$term_id]) ? (int) $limits[$term_id] : 0;
             $count = (int) ($counts[$term_id] ?? 0);
+
+            if ($val > 0) {
+                $ratio = $count / $val;
+                $color = '';
+                if ($count >= $val) {
+                    $color = '#d63638';
+                } elseif ($ratio >= 0.9) {
+                    $color = '#dba617';
+                }
+                $style = $color !== '' ? sprintf(' style="color:%s;font-weight:600;"', esc_attr($color)) : '';
+                $auslastung_html = sprintf('<span%s>%d / %d</span>', $style, $count, $val);
+            } else {
+                $auslastung_html = esc_html($count . ' / —');
+            }
+
             printf(
-                '<tr><td>%s</td><td><input type="number" min="0" step="1" name="meldetool_options[limits_rennklasse][%d]" value="%s" class="small-text" /></td><td>%d</td></tr>',
+                '<tr><td>%s</td><td><input type="number" min="0" step="1" name="meldetool_options[limits_rennklasse][%d]" value="%s" class="small-text" /></td><td>%d</td><td>%s</td></tr>',
                 esc_html($term->name),
                 $term_id,
                 $val > 0 ? esc_attr((string) $val) : '',
-                $count
+                $count,
+                $auslastung_html
             );
         }
         echo '</tbody></table>';
