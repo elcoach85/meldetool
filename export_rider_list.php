@@ -274,7 +274,7 @@ add_action('admin_init', function () {
     $out = fopen('php://output', 'w');
 
     // Kopfzeile
-    fputcsv($out, array('Rennklasse','Team','Startnummer','Kapitän','Nachname','Vorname','UCI-ID','Lizenznummer','Nationalität','Kategorie','Etappe','Bezahlt (€)'), $delimiter);
+    fputcsv($out, array('Rennklasse','Team','Startnummer','Kapitän','Nachname','Vorname','Kategorie','Nationalität','UCI-ID','Lizenznummer','Etappe','Bezahlt (€)'), $delimiter);
 
     // Rennklassen alphabetisch
     $rennklassen = get_terms(array(
@@ -415,10 +415,10 @@ add_action('admin_init', function () {
                     $is_cap,
                     html_entity_decode($nachname, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($vorname, ENT_QUOTES, 'UTF-8'),
+					html_entity_decode($kategorie, ENT_QUOTES, 'UTF-8'),
+					html_entity_decode($nation, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($uci, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($liz, ENT_QUOTES, 'UTF-8'),
-					html_entity_decode($nation, ENT_QUOTES, 'UTF-8'),
-					html_entity_decode($kategorie, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($etappe, ENT_QUOTES, 'UTF-8'),
                     html_entity_decode($bezahlt, ENT_QUOTES, 'UTF-8')
                 );
