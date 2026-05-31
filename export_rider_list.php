@@ -79,6 +79,7 @@ function nhr_export_tools_page_render() {
             <p class="submit">
                 <button type="submit" name="nhr_do_export" value="1" class="button button-primary">CSV exportieren</button>
                 <button type="submit" name="nhr_do_team_export" value="1" class="button button-secondary" style="margin-left:10px;">Teamliste exportieren</button>
+                <button type="submit" name="nhr_do_manager_email_export" value="1" class="button button-secondary" style="margin-left:10px;">Teammanager E-Mail exportieren</button>
                 <button type="submit" name="nhr_do_pdf" value="1" class="button button-secondary" style="margin-left:10px;">Starterliste (PDF-Druck)</button>
             </p>
         </form>
@@ -535,6 +536,61 @@ add_action('admin_init', function () {
             html_entity_decode($row['bezahlt'], ENT_QUOTES, 'UTF-8'),
             html_entity_decode($row['teammanager'], ENT_QUOTES, 'UTF-8'),
         ), $delimiter);
+    }
+
+    fclose($out);
+    exit;
+});
+
+/**
+ * Teammanager-E-Mailadressen als CSV exportieren.
+ * Ausgabe: nur E-Mail-Adressen, keine Kopfzeile, keine Zusatzspalten.
+ */
+add_action('admin_init', function () {
+    if (!is_admin() || !current_user_can('manage_options')) return;
+    if (empty($_GET['page']) || $_GET['page'] !== 'team-fahrer-export') return;
+    if (empty($_GET['nhr_do_manager_email_export']) || $_GET['nhr_do_manager_email_export'] !== '1') return;
+
+    check_admin_referer('nhr_export_nonce2');
+
+    if (function_exists('ob_get_level')) {
+        while (ob_get_level() > 0) { @ob_end_clean(); }
+    }
+
+    $delimiter_in = isset($_GET['nhr_delim']) ? wp_unslash($_GET['nhr_delim']) : ';';
+    $delimiter    = ($delimiter_in === '\t') ? "\t" : $delimiter_in;
+
+    nocache_headers();
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=teammanager_email_export_' . date('Y-m-d') . '.csv');
+
+    echo "\xEF\xBB\xBF";
+    $out = fopen('php://output', 'w');
+
+    $teams = get_posts(array(
+        'post_type'      => 'team',
+        'post_status'    => 'any',
+        'numberposts'    => -1,
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+    ));
+
+    $emails = array();
+    foreach ($teams as $team) {
+        $team_id = (int) $team->ID;
+        $email_manager = trim((string) get_post_meta($team_id, 'email_manager', true));
+        if ($email_manager === '' || !is_email($email_manager)) {
+            continue;
+        }
+
+        $emails[] = strtolower($email_manager);
+    }
+
+    $emails = array_values(array_unique($emails));
+    natcasesort($emails);
+
+    foreach ($emails as $email) {
+        fputcsv($out, array(html_entity_decode((string) $email, ENT_QUOTES, 'UTF-8')), $delimiter);
     }
 
     fclose($out);
