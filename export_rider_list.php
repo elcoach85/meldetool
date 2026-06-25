@@ -80,6 +80,7 @@ function nhr_export_tools_page_render() {
                 <button type="submit" name="nhr_do_export" value="1" class="button button-primary">CSV exportieren</button>
                 <button type="submit" name="nhr_do_team_export" value="1" class="button button-secondary" style="margin-left:10px;">Teamliste exportieren</button>
                 <button type="submit" name="nhr_do_manager_email_export" value="1" class="button button-secondary" style="margin-left:10px;">Teammanager E-Mail exportieren</button>
+                <button type="submit" name="nhr_do_account_export" value="1" class="button button-secondary" style="margin-left:10px;">Kontodaten exportieren</button>
                 <button type="submit" name="nhr_do_pdf" value="1" class="button button-secondary" style="margin-left:10px;">Starterliste (PDF-Druck)</button>
             </p>
         </form>
@@ -591,6 +592,118 @@ add_action('admin_init', function () {
 
     foreach ($emails as $email) {
         fputcsv($out, array(html_entity_decode((string) $email, ENT_QUOTES, 'UTF-8')), $delimiter);
+    }
+
+    fclose($out);
+    exit;
+});
+
+/**
+ * Kontodaten (Teams und Fahrer) als CSV exportieren.
+ * Spalten: Art, Kontoinhaber, IBAN, BIC, Teamname / Fahrername
+ */
+add_action('admin_init', function () {
+    if (!is_admin() || !current_user_can('manage_options')) return;
+    if (empty($_GET['page']) || $_GET['page'] !== 'team-fahrer-export') return;
+    if (empty($_GET['nhr_do_account_export']) || $_GET['nhr_do_account_export'] !== '1') return;
+
+    check_admin_referer('nhr_export_nonce2');
+
+    if (function_exists('ob_get_level')) {
+        while (ob_get_level() > 0) { @ob_end_clean(); }
+    }
+
+    $delimiter_in = isset($_GET['nhr_delim']) ? wp_unslash($_GET['nhr_delim']) : ';';
+    $delimiter    = ($delimiter_in === '\t') ? "\t" : $delimiter_in;
+
+    nocache_headers();
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=kontodaten_export_' . date('Y-m-d') . '.csv');
+
+    echo "\xEF\xBB\xBF";
+    $out = fopen('php://output', 'w');
+
+    // Kopfzeile
+    fputcsv($out, array('Art', 'Kontoinhaber', 'IBAN', 'BIC', 'Team-/Fahrername'), $delimiter);
+
+    // Teams exportieren
+    $teams = get_posts(array(
+        'post_type'      => 'team',
+        'post_status'    => 'any',
+        'numberposts'    => -1,
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+    ));
+
+    $rows = array();
+
+    foreach ($teams as $team) {
+        $team_id = (int) $team->ID;
+        $kontoinhaber = (string) get_post_meta($team_id, 'kontoinhaber', true);
+        $iban = (string) get_post_meta($team_id, 'iban', true);
+        $bic = (string) get_post_meta($team_id, 'bic', true);
+
+        // Nur exportieren, wenn mindestens ein Feld vorhanden ist
+        if ($kontoinhaber !== '' || $iban !== '' || $bic !== '') {
+            $rows[] = array(
+                'art'    => 'Team',
+                'inhaber' => html_entity_decode($kontoinhaber, ENT_QUOTES, 'UTF-8'),
+                'iban'   => html_entity_decode($iban, ENT_QUOTES, 'UTF-8'),
+                'bic'    => html_entity_decode($bic, ENT_QUOTES, 'UTF-8'),
+                'name'   => html_entity_decode($team->post_title, ENT_QUOTES, 'UTF-8'),
+            );
+        }
+    }
+
+    // Fahrer exportieren
+    $fahrer_list = get_posts(array(
+        'post_type'      => 'fahrer',
+        'post_status'    => 'any',
+        'numberposts'    => -1,
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+    ));
+
+    foreach ($fahrer_list as $fahrer) {
+        $fahrer_id = (int) $fahrer->ID;
+        $kontoinhaber = (string) get_post_meta($fahrer_id, 'kontoinhaber', true);
+        $iban = (string) get_post_meta($fahrer_id, 'iban', true);
+        $bic = (string) get_post_meta($fahrer_id, 'bic', true);
+
+        // Nur exportieren, wenn mindestens ein Feld vorhanden ist
+        if ($kontoinhaber !== '' || $iban !== '' || $bic !== '') {
+            $vorname = (string) get_post_meta($fahrer_id, 'vorname', true);
+            $nachname = (string) get_post_meta($fahrer_id, 'nachname', true);
+            $fahrer_name = trim($vorname . ' ' . $nachname);
+
+            $rows[] = array(
+                'art'    => 'Fahrer',
+                'inhaber' => html_entity_decode($kontoinhaber, ENT_QUOTES, 'UTF-8'),
+                'iban'   => html_entity_decode($iban, ENT_QUOTES, 'UTF-8'),
+                'bic'    => html_entity_decode($bic, ENT_QUOTES, 'UTF-8'),
+                'name'   => html_entity_decode($fahrer_name, ENT_QUOTES, 'UTF-8'),
+            );
+        }
+    }
+
+    // Sortieren: Art (Team vor Fahrer), dann Name
+    usort($rows, function ($a, $b) {
+        $art_compare = strcmp((string) $a['art'], (string) $b['art']);
+        if ($art_compare !== 0) {
+            return ($a['art'] === 'Team') ? -1 : 1;
+        }
+        return strcasecmp((string) $a['name'], (string) $b['name']);
+    });
+
+    // Ausgabe
+    foreach ($rows as $row) {
+        fputcsv($out, array(
+            $row['art'],
+            $row['inhaber'],
+            $row['iban'],
+            $row['bic'],
+            $row['name'],
+        ), $delimiter);
     }
 
     fclose($out);
