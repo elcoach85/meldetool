@@ -1,7 +1,7 @@
 # Meldetool
 
 - WordPress-Plugin zur Team- und Fahreranmeldung mit Pods.
-- Tool zur Abfrage der Jahrgänge von Fahrer*innen aus einer csv-Liste. Aufruf mit `python.exe .\rad-net-bulk-csv.py --input .\fahrer.csv --output .\fahrer_mit_jahrgang.csv --first-col vorname --last-col nachname --delimiter ';' --encoding cp1252 2>&1 | Select-Object -Last 35`
+- Tool zur Abfrage der Jahrgänge von Fahrer*innen aus einer csv-Liste. Aufruf mit `python.exe .\rad-net-bulk-csv.py --input .\fahrer.csv --output .\fahrer_mit_jahrgang.csv --first-col vorname --last-col nachname --delimiter ';' --encoding cp1252 2>&1 | Select-Object -Last 35`. Die csv-Eingabeliste muss zwei Spalten enthalten: `vorname` und `nachname`.
 
 ## Quickstart
 
